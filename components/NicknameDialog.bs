@@ -130,10 +130,10 @@ end function
 
 sub moveFocus(dRow as integer, dCol as integer)
     m.focusRow = clamp(m.focusRow + dRow, 0, m.keyRows.count() - 1)
+    ' lastCol is for the destination row, so this clamp also keeps the column
+    ' valid when moving into a shorter row (e.g. down onto the action row).
     lastCol = m.keyRows[m.focusRow].count() - 1
     m.focusCol = clamp(m.focusCol + dCol, 0, lastCol)
-    ' Keep the column valid when moving into a shorter row.
-    if m.focusCol > lastCol then m.focusCol = lastCol
     updateHighlight()
 end sub
 

@@ -12,6 +12,10 @@ end sub
 
 sub onVisibleChange()
     if m.top.visible
+        ' Clear any prior selection so choosing the same option again still
+        ' registers as a change and re-fires the observer (string fields only
+        ' notify on a real value change).
+        m.top.selection = ""
         m.menu.focusButton = 0
         m.menu.setFocus(true)
     end if
