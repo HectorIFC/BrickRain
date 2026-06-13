@@ -3,6 +3,12 @@ major_version=1
 minor_version=0
 build_version=1
 
+## Game flags: game=1 removes sound-effect latency for roAudioResource;
+## multi_key_events=1 delivers key-up + simultaneous key events, so holding a
+## direction while rotating/dropping is handled cleanly.
+game=1
+multi_key_events=1
+
 ## Channel icons (focus artwork shown in the Roku home screen grid)
 mm_icon_focus_fhd=pkg:/assets/images/icon_focus_fhd.png
 mm_icon_focus_hd=pkg:/assets/images/icon_focus_hd.png
