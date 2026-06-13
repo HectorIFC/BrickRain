@@ -41,37 +41,17 @@ namespace brickrain.leaderboard
         return year * 10000 + month * 100 + day
     end function
 
-    ' Inserts or updates the entry for a nickname. The nickname key is
-    ' case-insensitive; the stored casing is the one used when the best
-    ' score was achieved. A lower or equal score never downgrades an entry.
-    ' Result is sorted (score desc, earliest date wins ties) and capped.
-    function upsert(leaderboardState as object, nickname as string, score as integer, dateText as string) as object
+    ' Records one finished game as its own entry. Every playthrough is kept, so
+    ' the same nickname can appear multiple times (e.g. Hector 100, Mario 98,
+    ' Hector 95). The result is sorted (score desc, earliest date wins ties) and
+    ' capped at maxEntries(); entries beyond the cap drop from the bottom.
+    function addEntry(leaderboardState as object, nickname as string, score as integer, dateText as string) as object
         entries = []
-        found = false
         for each entry in leaderboardState.entries
-            if lcase(entry.nickname) = lcase(nickname)
-                found = true
-                if score > entry.score
-                    entries.push({ nickname: nickname, score: score, date: dateText })
-                else
-                    entries.push(cloneEntry(entry))
-                end if
-            else
-                entries.push(cloneEntry(entry))
-            end if
+            entries.push(cloneEntry(entry))
         end for
-        if not found
-            entries.push({ nickname: nickname, score: score, date: dateText })
-        end if
+        entries.push({ nickname: nickname, score: score, date: dateText })
         return { entries: capEntries(sortEntries(entries)) }
-    end function
-
-    ' Best score currently stored for a nickname, or -1 when absent.
-    function bestScoreFor(leaderboardState as object, nickname as string) as integer
-        for each entry in leaderboardState.entries
-            if lcase(entry.nickname) = lcase(nickname) then return entry.score
-        end for
-        return -1
     end function
 
     ' The top (rank 1) score on the leaderboard, or 0 when it is empty. This is

@@ -45,7 +45,7 @@ end sub
 
 ' --- lifecycle ---
 
-' Triggered when MainScene sets playerNickname to begin a game.
+' Triggered when MainScene bumps startGameRequest to begin a game.
 sub onStartRequested()
     if m.top.playerNickname <> invalid and m.top.playerNickname <> "" then startGame()
 end sub

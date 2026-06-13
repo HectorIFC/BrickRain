@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-  Home screen: pixel-wordmark logo, the ranking table (nickname | score | date,
-  already sorted by the leaderboard logic) and the focused Start Game button.
-  MainScene supplies the entries; pressing Start bumps `startRequested`.
+  Home screen: pixel-wordmark logo, the scrollable ranking table
+  (nickname | score | date, already sorted by the leaderboard logic) and the
+  Start Game action. The screen Group owns key handling: Up/Down scroll the
+  list window, OK bumps `startRequested`. MainScene supplies the entries.
 -->
 <component name="LeaderboardScreen" extends="Group">
     <interface>
         <field id="entries" type="array" onChange="onEntriesChange" />
         <field id="startRequested" type="integer" value="0" />
-        <!-- MainScene bumps this to hand focus to the Start button (the value
-             always changes, so the observer fires even on first boot). -->
+        <!-- MainScene bumps this to hand focus to this screen (the value always
+             changes, so the observer fires even on first boot). -->
         <field id="focusRequest" type="integer" value="0" onChange="onFocusRequest" />
     </interface>
     <children>
@@ -20,11 +21,15 @@
             <Label text="NICKNAME" font="font:MediumBoldSystemFont" color="0x8A8AB0FF" translation="[0, 0]" />
             <Label text="SCORE" font="font:MediumBoldSystemFont" color="0x8A8AB0FF" translation="[440, 0]" />
             <Label text="DATE" font="font:MediumBoldSystemFont" color="0x8A8AB0FF" translation="[640, 0]" />
+            <Label id="scrollUp" text="▲" font="font:MediumBoldSystemFont" color="0x00F0F0FF" horizAlign="center" width="120" translation="[360, 28]" visible="false" />
+            <Rectangle id="rowHighlight" width="820" height="46" color="0x1E3A6EFF" translation="[-20, 50]" visible="false" />
             <Group id="rows" translation="[0, 56]" />
+            <Label id="scrollDown" text="▼" font="font:MediumBoldSystemFont" color="0x00F0F0FF" horizAlign="center" width="120" translation="[360, 474]" visible="false" />
         </Group>
 
         <Label id="emptyState" text="No scores yet — be the first!" font="font:MediumBoldSystemFont" color="0xF5F5FAFF" horizAlign="center" width="800" translation="[560, 500]" visible="false" />
 
-        <ButtonGroup id="startMenu" translation="[820, 930]" minWidth="280" />
+        <Rectangle id="startButton" width="300" height="68" color="0x00F0F0FF" translation="[810, 928]" />
+        <Label text="Start Game" font="font:MediumBoldSystemFont" color="0x080A22FF" horizAlign="center" vertAlign="center" width="300" height="68" translation="[810, 928]" />
     </children>
 </component>

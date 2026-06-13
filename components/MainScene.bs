@@ -2,8 +2,8 @@ import "pkg:/source/logic/leaderboard.bs"
 import "pkg:/source/registryAdapter.bs"
 
 ' Screen router and persistence owner. The leaderboard lives in the registry via
-' the adapter; this scene loads it on boot, feeds it to the dashboard, and upserts
-' each finished game back into it (best score per nickname, today's date).
+' the adapter; this scene loads it on boot, feeds it to the dashboard, and records
+' each finished game as its own entry (one row per game, today's date).
 
 sub init()
     m.leaderboardScreen = m.top.findNode("leaderboardScreen")
@@ -55,16 +55,18 @@ sub startGame(nickname as string)
     ' The record to beat is the leaderboard's #1 score: only surpassing first
     ' place counts as a new record (not merely beating one's own best).
     m.gameScreen.recordScore = brickrain.leaderboard.topScore(m.leaderboard)
-    ' Setting the nickname last triggers GameScreen to start the game.
     m.gameScreen.playerNickname = nickname
+    ' Bump the counter last: this always changes, so the game (re)starts fresh
+    ' even when the same nickname is reused (a string field would not re-fire).
+    m.gameScreen.startGameRequest = m.gameScreen.startGameRequest + 1
 end sub
 
-' A finished game: record the result (never downgrades a better past score) and
-' refresh the record to beat so a "play again" round compares against it.
+' A finished game: record this game as its own leaderboard entry and refresh the
+' record to beat so a "play again" round compares against it.
 sub onGameResult()
     result = m.gameScreen.gameResult
     if result = invalid or result.nickname = invalid then return
-    m.leaderboard = brickrain.leaderboard.upsert(m.leaderboard, result.nickname, result.score, todayDate())
+    m.leaderboard = brickrain.leaderboard.addEntry(m.leaderboard, result.nickname, result.score, todayDate())
     brickrain.registry.saveLeaderboard(m.leaderboard)
     m.leaderboardScreen.entries = m.leaderboard.entries
     m.gameScreen.recordScore = brickrain.leaderboard.topScore(m.leaderboard)

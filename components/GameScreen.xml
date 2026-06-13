@@ -7,10 +7,14 @@
 -->
 <component name="GameScreen" extends="Group">
     <interface>
-        <!-- Set by MainScene to (re)start a game for this player. -->
-        <field id="playerNickname" type="string" onChange="onStartRequested" />
+        <!-- The current player's nickname (display data only). -->
+        <field id="playerNickname" type="string" />
         <!-- The leaderboard #1 score this game must beat to be a new record. -->
         <field id="recordScore" type="integer" />
+        <!-- MainScene bumps this to (re)start a game. A counter (not the nickname
+             string) is the trigger, so replaying with the SAME nickname still
+             starts a fresh game (a string field would not re-fire onChange). -->
+        <field id="startGameRequest" type="integer" value="0" onChange="onStartRequested" />
         <!-- Outputs observed by MainScene. -->
         <field id="gameResult" type="assocarray" />
         <field id="quitToDashboard" type="boolean" value="false" />

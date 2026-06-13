@@ -1,45 +1,104 @@
 import "pkg:/source/theme.bs"
 
-' Renders the ranking table from the entries MainScene supplies and signals a
-' start request when the Start Game button is activated. Table rows are rebuilt
-' only when the entries change (entering the dashboard), never per frame.
+' Renders the ranking table with a moving highlight cursor. The screen Group is
+' the key owner: Up/Down move the highlighted row (always responsive, even when
+' all entries fit), the window scrolls when the cursor reaches an edge, and OK
+' bumps `startRequested` (observed by MainScene). Rows are rebuilt only when the
+' entries change or the cursor moves, never per frame.
 
 sub init()
     m.rows = m.top.findNode("rows")
     m.emptyState = m.top.findNode("emptyState")
-    m.startMenu = m.top.findNode("startMenu")
-    m.startMenu.buttons = ["Start Game"]
-    m.startMenu.observeField("buttonSelected", "onStart")
+    m.scrollUp = m.top.findNode("scrollUp")
+    m.scrollDown = m.top.findNode("scrollDown")
+    m.rowHighlight = m.top.findNode("rowHighlight")
     m.rowNodes = []
-    m.maxRows = 10
-    ' Focus the Start button as soon as the dashboard is created so the remote
-    ' can act on it immediately on boot.
-    m.startMenu.setFocus(true)
+    m.rowPitch = 52
+    m.visibleRows = 8
+    m.scrollOffset = 0
+    m.selectedIndex = 0
+    ' The screen handles keys itself, so take focus as soon as it is created.
+    m.top.setFocus(true)
 end sub
 
 ' Re-takes focus when MainScene shows the dashboard (e.g. returning from a game).
 sub onFocusRequest()
-    m.startMenu.setFocus(true)
+    m.top.setFocus(true)
 end sub
 
-sub onStart()
-    m.top.startRequested = m.top.startRequested + 1
-end sub
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+    if key = "up"
+        moveCursor(-1)
+        return true
+    else if key = "down"
+        moveCursor(1)
+        return true
+    else if key = "OK"
+        m.top.startRequested = m.top.startRequested + 1
+        return true
+    end if
+    return false
+end function
 
 sub onEntriesChange()
+    m.selectedIndex = 0
+    m.scrollOffset = 0
+    renderWindow()
+end sub
+
+' Moves the highlight by delta, clamped to the entry count, and scrolls the
+' window so the highlighted row stays visible.
+sub moveCursor(delta as integer)
+    count = entryCount()
+    if count = 0 then return
+    newSelected = m.selectedIndex + delta
+    if newSelected < 0 then newSelected = 0
+    if newSelected > count - 1 then newSelected = count - 1
+    if newSelected = m.selectedIndex then return
+    m.selectedIndex = newSelected
+
+    if m.selectedIndex < m.scrollOffset
+        m.scrollOffset = m.selectedIndex
+    else if m.selectedIndex >= m.scrollOffset + m.visibleRows
+        m.scrollOffset = m.selectedIndex - m.visibleRows + 1
+    end if
+    renderWindow()
+end sub
+
+function entryCount() as integer
+    if m.top.entries = invalid then return 0
+    return m.top.entries.count()
+end function
+
+' Rebuilds the rows for the current window, positions the highlight on the
+' selected row, and updates the scroll indicators.
+sub renderWindow()
     clearRows()
-    entries = m.top.entries
-    if entries = invalid or entries.count() = 0
+    count = entryCount()
+    if count = 0
         m.emptyState.visible = true
+        m.scrollUp.visible = false
+        m.scrollDown.visible = false
+        m.rowHighlight.visible = false
         return
     end if
     m.emptyState.visible = false
+    entries = m.top.entries
 
-    count = entries.count()
-    if count > m.maxRows then count = m.maxRows
-    for i = 0 to count - 1
-        addRow(i, entries[i])
+    last = m.scrollOffset + m.visibleRows - 1
+    if last > count - 1 then last = count - 1
+    for i = m.scrollOffset to last
+        addRow(i - m.scrollOffset, i + 1, entries[i], i = m.selectedIndex)
     end for
+
+    ' Position the highlight behind the selected row's display slot.
+    displaySlot = m.selectedIndex - m.scrollOffset
+    m.rowHighlight.translation = [-20, 56 + displaySlot * m.rowPitch - 6]
+    m.rowHighlight.visible = true
+
+    m.scrollUp.visible = m.scrollOffset > 0
+    m.scrollDown.visible = last < count - 1
 end sub
 
 sub clearRows()
@@ -49,13 +108,15 @@ sub clearRows()
     m.rowNodes = []
 end sub
 
-' Adds one ranking row as three positioned labels (nickname, score, date).
-sub addRow(index as integer, entry as object)
-    rowY = index * 52
-    rankColor = brickrain.theme.textColor()
-    if index = 0 then rankColor = brickrain.theme.accentColor()
+' Adds one ranking row at displaySlot (0-based screen position) showing its
+' absolute rank (1-based position in the full list). The selected row's nickname
+' is drawn in the accent color for extra contrast over the highlight bar.
+sub addRow(displaySlot as integer, rank as integer, entry as object, selected as boolean)
+    rowY = displaySlot * m.rowPitch
+    nameColor = brickrain.theme.textColor()
+    if selected then nameColor = brickrain.theme.accentColor()
 
-    appendLabel((index + 1).toStr() + ". " + entry.nickname, 0, rowY, rankColor)
+    appendLabel(rank.toStr() + ". " + entry.nickname, 0, rowY, nameColor)
     appendLabel(entry.score.toStr(), 440, rowY, brickrain.theme.textColor())
     appendLabel(entry.date, 640, rowY, brickrain.theme.textColor())
 end sub

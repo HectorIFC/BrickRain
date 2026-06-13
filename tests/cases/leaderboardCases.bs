@@ -8,7 +8,7 @@ namespace tests.leaderboardCases
         return [
             { name: "leaderboard: nickname validation rules", collector: caseNicknameValidation() }
             { name: "leaderboard: date formatting is dd/mm/yyyy", collector: caseDateFormat() }
-            { name: "leaderboard: upsert keeps the best score per nickname", collector: caseUpsertBest() }
+            { name: "leaderboard: addEntry records every game (duplicates allowed)", collector: caseAddEntry() }
             { name: "leaderboard: ranking sorts by score then earliest date", collector: caseRanking() }
             { name: "leaderboard: topScore returns the rank-1 score", collector: caseTopScore() }
             { name: "leaderboard: capacity is capped at 50 entries", collector: caseCap() }
@@ -41,36 +41,33 @@ namespace tests.leaderboardCases
         return c
     end function
 
-    function caseUpsertBest() as object
+    function caseAddEntry() as object
         c = tests.assert.newCollector()
         lb = brickrain.leaderboard.create()
-        lb = brickrain.leaderboard.upsert(lb, "Hector", 100, "01/06/2026")
-        tests.assert.equal(c, lb.entries.count(), 1, "first entry inserted")
-        ' A lower score for the same player (case-insensitive) never downgrades.
-        lb = brickrain.leaderboard.upsert(lb, "HECTOR", 50, "02/06/2026")
-        tests.assert.equal(c, lb.entries.count(), 1, "no duplicate for different casing")
-        tests.assert.equal(c, lb.entries[0].score, 100, "lower score kept the best")
-        tests.assert.equal(c, lb.entries[0].nickname, "Hector", "original casing preserved")
-        tests.assert.equal(c, lb.entries[0].date, "01/06/2026", "original date preserved")
-        ' An equal score is not an improvement either.
-        lb = brickrain.leaderboard.upsert(lb, "hector", 100, "03/06/2026")
-        tests.assert.equal(c, lb.entries[0].date, "01/06/2026", "equal score keeps the earlier record")
-        ' A higher score updates score, date and casing.
-        lb = brickrain.leaderboard.upsert(lb, "hector", 250, "04/06/2026")
-        tests.assert.equal(c, lb.entries[0].score, 250, "higher score replaces the best")
-        tests.assert.equal(c, lb.entries[0].date, "04/06/2026", "date follows the new best")
-        tests.assert.equal(c, lb.entries[0].nickname, "hector", "casing follows the new best")
-        tests.assert.equal(c, brickrain.leaderboard.bestScoreFor(lb, "HeCtOr"), 250, "lookup is case-insensitive")
-        tests.assert.equal(c, brickrain.leaderboard.bestScoreFor(lb, "nobody"), -1, "missing nickname yields -1")
+        ' Every game is its own entry; the same nickname may appear N times.
+        lb = brickrain.leaderboard.addEntry(lb, "Hector", 100, "13/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Mario", 98, "13/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Hector", 95, "13/06/2026")
+        tests.assert.equal(c, lb.entries.count(), 3, "every game adds an entry")
+        tests.assert.equal(c, lb.entries[0].nickname, "Hector", "rank 1 nickname")
+        tests.assert.equal(c, lb.entries[0].score, 100, "rank 1 score")
+        tests.assert.equal(c, lb.entries[1].nickname, "Mario", "rank 2 by score")
+        tests.assert.equal(c, lb.entries[2].nickname, "Hector", "same nickname appears again")
+        tests.assert.equal(c, lb.entries[2].score, 95, "the lower game is kept as its own entry")
+        ' Casing is preserved as entered; no dedup or normalization.
+        lb = brickrain.leaderboard.addEntry(lb, "HECTOR", 120, "14/06/2026")
+        tests.assert.equal(c, lb.entries.count(), 4, "a fourth game adds a fourth entry")
+        tests.assert.equal(c, lb.entries[0].nickname, "HECTOR", "new top entry, casing preserved")
+        tests.assert.equal(c, lb.entries[0].score, 120, "new top score")
         return c
     end function
 
     function caseRanking() as object
         c = tests.assert.newCollector()
         lb = brickrain.leaderboard.create()
-        lb = brickrain.leaderboard.upsert(lb, "Carol", 300, "05/06/2026")
-        lb = brickrain.leaderboard.upsert(lb, "Alice", 500, "06/06/2026")
-        lb = brickrain.leaderboard.upsert(lb, "Bob", 300, "01/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Carol", 300, "05/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Alice", 500, "06/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Bob", 300, "01/06/2026")
         tests.assert.equal(c, lb.entries[0].nickname, "Alice", "highest score first")
         tests.assert.equal(c, lb.entries[1].nickname, "Bob", "tie broken by earliest date")
         tests.assert.equal(c, lb.entries[2].nickname, "Carol", "later tie date ranks below")
@@ -81,17 +78,17 @@ namespace tests.leaderboardCases
         c = tests.assert.newCollector()
         empty = brickrain.leaderboard.create()
         tests.assert.equal(c, brickrain.leaderboard.topScore(empty), 0, "empty leaderboard has top score 0")
-        lb = brickrain.leaderboard.upsert(empty, "Bob", 300, "01/06/2026")
+        lb = brickrain.leaderboard.addEntry(empty, "Bob", 300, "01/06/2026")
         tests.assert.equal(c, brickrain.leaderboard.topScore(lb), 300, "single entry is the top score")
-        lb = brickrain.leaderboard.upsert(lb, "Alice", 900, "02/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Alice", 900, "02/06/2026")
         tests.assert.equal(c, brickrain.leaderboard.topScore(lb), 900, "top score is the rank-1 score, not insertion order")
-        lb = brickrain.leaderboard.upsert(lb, "Carol", 500, "03/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Carol", 500, "03/06/2026")
         tests.assert.equal(c, brickrain.leaderboard.topScore(lb), 900, "a lower new entry does not change the top score")
 
         ' Reproduces the reported bug: "new record" must compare against the
         ' leaderboard #1, not a new player's (zero) personal best. With ABC at
         ' 1169, a new player scoring 239 is NOT a record; 1200 is.
-        board = brickrain.leaderboard.upsert(brickrain.leaderboard.create(), "ABC", 1169, "13/06/2026")
+        board = brickrain.leaderboard.addEntry(brickrain.leaderboard.create(), "ABC", 1169, "13/06/2026")
         record = brickrain.leaderboard.topScore(board)
         tests.assert.isFalse(c, 239 > record, "a new player below the #1 score is not a new record")
         tests.assert.isTrue(c, 1200 > record, "beating the #1 score is a new record")
@@ -102,20 +99,21 @@ namespace tests.leaderboardCases
         c = tests.assert.newCollector()
         lb = brickrain.leaderboard.create()
         for i = 1 to 55
-            lb = brickrain.leaderboard.upsert(lb, "player" + i.toStr(), i * 10, "01/06/2026")
+            lb = brickrain.leaderboard.addEntry(lb, "player" + i.toStr(), i * 10, "01/06/2026")
         end for
         tests.assert.equal(c, lb.entries.count(), 50, "capped at 50 entries")
         tests.assert.equal(c, lb.entries[0].score, 550, "best survives the cap")
         tests.assert.equal(c, lb.entries[49].score, 60, "weakest kept is the 50th best")
-        tests.assert.equal(c, brickrain.leaderboard.bestScoreFor(lb, "player5"), -1, "scores below the cap are dropped")
+        ' The five lowest games (scores 10..50) are dropped from the bottom.
+        tests.assert.isTrue(c, brickrain.leaderboard.topScore(lb) = 550, "top score unaffected by the cap")
         return c
     end function
 
     function caseRoundTrip() as object
         c = tests.assert.newCollector()
         lb = brickrain.leaderboard.create()
-        lb = brickrain.leaderboard.upsert(lb, "Alice", 500, "06/06/2026")
-        lb = brickrain.leaderboard.upsert(lb, "Bob", 300, "01/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Alice", 500, "06/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Bob", 300, "01/06/2026")
         json = brickrain.leaderboard.serialize(lb)
         restored = brickrain.leaderboard.deserialize(json)
         tests.assert.equal(c, restored.entries.count(), 2, "entry count survives")
