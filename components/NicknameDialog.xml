@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-  Wrapper around the platform StandardKeyboardDialog. It owns no visuals of its
-  own (extends Node): when `show` is set it attaches a keyboard dialog to the
-  scene, validates the typed nickname with the pure leaderboard logic and reports
-  the outcome through `result` = { confirmed, nickname }.
+  Custom on-screen nickname entry. It deliberately does NOT use the platform
+  StandardKeyboardDialog: that node is unavailable on the brs-engine browser
+  simulator (and varies across Roku OS versions), so the keyboard is built from
+  primitive Rectangle/Label nodes that render everywhere. The D-pad moves the
+  highlight, OK types a character, and the same pure validation as the logic
+  tests gates the result (2-12 alphanumeric).
 -->
-<component name="NicknameDialog" extends="Node">
+<component name="NicknameDialog" extends="Group">
     <interface>
         <field id="lastNickname" type="string" value="" />
         <field id="show" type="boolean" value="false" onChange="onShowChange" />
         <field id="result" type="assocarray" />
     </interface>
+    <children>
+        <Rectangle id="backdrop" width="1920" height="1080" color="0x080A22F2" />
+        <Label id="title" text="ENTER YOUR NICKNAME" font="font:LargeBoldSystemFont" color="0x00F0F0FF" horizAlign="center" width="1920" translation="[0, 150]" />
+        <Rectangle id="inputBox" width="600" height="84" color="0x10122EFF" translation="[660, 250]" />
+        <Label id="inputText" text="" font="font:LargeBoldSystemFont" color="0xF5F5FAFF" width="560" translation="[684, 272]" />
+        <Label id="message" text="" font="font:MediumSystemFont" color="0xF00000FF" horizAlign="center" width="1920" translation="[0, 350]" />
+        <Group id="keyboard" translation="[0, 420]" />
+    </children>
 </component>

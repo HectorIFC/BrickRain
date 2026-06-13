@@ -8,6 +8,6 @@
     <children>
         <LeaderboardScreen id="leaderboardScreen" />
         <GameScreen id="gameScreen" visible="false" />
-        <NicknameDialog id="nicknameDialog" />
+        <NicknameDialog id="nicknameDialog" visible="false" />
     </children>
 </component>

@@ -9,6 +9,8 @@ sub init()
     m.rows = brickrain.theme.visibleRows()
     m.pitch = brickrain.theme.cellSize() + brickrain.theme.cellGap()
     m.colors = brickrain.theme.cellColors()
+    m.emptyColor = brickrain.theme.emptyCellColor()
+    m.lastColors = invalid
 
     buildWellBackground()
     buildCellPool()
@@ -21,6 +23,7 @@ sub buildWellBackground()
     background.height = m.rows * m.pitch - brickrain.theme.cellGap()
     background.color = brickrain.theme.gridLineColor()
     m.top.appendChild(background)
+    m.background = background
 end sub
 
 sub buildCellPool()
@@ -55,13 +58,31 @@ end sub
 
 ' Recolors the whole pool from the flat color-index array supplied by GameScreen.
 sub onBoardColorsChange()
-    colorsField = m.top.boardColors
+    m.lastColors = m.top.boardColors
+    repaint()
+end sub
+
+' Applies the current level theme (empty-cell + grid colors) and repaints so the
+' backdrop updates immediately on level-up.
+sub onThemeChange()
+    theme = m.top.theme
+    if theme = invalid then return
+    if theme.empty <> invalid then m.emptyColor = theme.empty
+    if theme.grid <> invalid then m.background.color = theme.grid
+    repaint()
+end sub
+
+sub repaint()
+    colorsField = m.lastColors
     if colorsField = invalid then return
     for i = 0 to m.cells.count() - 1
         index = 0
         if i < colorsField.count() then index = colorsField[i]
-        if index < 0 or index >= m.colors.count() then index = 0
-        m.cells[i].color = m.colors[index]
+        if index <= 0 or index >= m.colors.count()
+            m.cells[i].color = m.emptyColor
+        else
+            m.cells[i].color = m.colors[index]
+        end if
     end for
 end sub
 

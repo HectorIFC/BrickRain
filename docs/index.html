@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BrickRain — a falling-blocks game for Roku TV</title>
+    <meta name="description" content="BrickRain is an open-source falling-blocks game for Roku TV, built in BrighterScript with a pure, fully unit-tested logic core." />
+    <link rel="icon" type="image/png" href="images/wordmark.png" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <!-- ===== Hero ===== -->
+    <header class="hero">
+        <img class="hero__art" src="images/hero.png" alt="BrickRain pixel-art wordmark over falling tetrominoes" />
+        <div class="hero__overlay">
+            <h1 class="hero__title">BRICK<span>RAIN</span></h1>
+            <p class="hero__tagline">A falling-blocks game for Roku TV — pixel art, chiptune sound, zero network.</p>
+            <p class="badges">
+                <a href="https://github.com/HectorIFC/BrickRain/actions/workflows/ci.yml"><img src="https://github.com/HectorIFC/BrickRain/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+                <a href="https://github.com/HectorIFC/BrickRain/releases"><img src="https://img.shields.io/github/v/release/HectorIFC/BrickRain?label=release" alt="Latest release" /></a>
+                <img src="https://img.shields.io/badge/logic%20coverage-%E2%89%A580%25-2ea44f" alt="Logic coverage at least 80 percent" />
+                <a href="https://github.com/HectorIFC/BrickRain/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license" /></a>
+            </p>
+            <p class="hero__cta">
+                <a class="button" href="https://github.com/HectorIFC/BrickRain">View on GitHub</a>
+            </p>
+        </div>
+    </header>
+
+    <main>
+        <!-- ===== Gameplay video (RESERVED) ===== -->
+        <section class="section" id="gameplay">
+            <h2>Gameplay</h2>
+            <!-- GAMEPLAY VIDEO: replace placeholder with docs/media/gameplay.mp4 when recorded -->
+            <!--
+            <video class="video" controls preload="metadata" poster="images/hero.png">
+                <source src="media/gameplay.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+            </video>
+            -->
+            <div class="placeholder">
+                <span class="placeholder__icon">▶</span>
+                <p>Gameplay video on a real Roku TV — coming soon</p>
+            </div>
+        </section>
+
+        <!-- ===== How to play ===== -->
+        <section class="section" id="how-to-play">
+            <h2>How to play</h2>
+            <p>Steer the falling tetrominoes into the well, complete horizontal lines to clear
+               them, and survive as the speed climbs every 10 lines.</p>
+
+            <h3>Controls (Roku remote)</h3>
+            <table class="controls">
+                <thead><tr><th>Button</th><th>Action</th></tr></thead>
+                <tbody>
+                    <tr><td>Left / Right</td><td>Move piece</td></tr>
+                    <tr><td>Down</td><td>Soft drop (hold to repeat)</td></tr>
+                    <tr><td>OK</td><td>Rotate clockwise</td></tr>
+                    <tr><td>Up</td><td>Hard drop</td></tr>
+                    <tr><td>Rewind (&#9664;&#9664;)</td><td>Rotate counter-clockwise</td></tr>
+                    <tr><td>Fast-forward (&#9654;&#9654;)</td><td>Hold piece</td></tr>
+                    <tr><td>Play / Pause</td><td>Pause / resume</td></tr>
+                    <tr><td>Back</td><td>Pause menu; from the menu, exit</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Rules</h3>
+            <ul class="rules">
+                <li>10 &times; 20 well, the 7 standard tetrominoes dealt from a shuffled 7-bag.</li>
+                <li>Super Rotation System (SRS) with standard wall kicks; a ghost piece shows the landing spot.</li>
+                <li>Hold one piece (once per piece); the next 3 pieces are previewed.</li>
+                <li>Line clears score 100 / 300 / 500 / 800 &times; level for 1 / 2 / 3 / 4 lines; soft drop +1, hard drop +2 per cell.</li>
+                <li>Level up every 10 cleared lines — gravity accelerates and the well changes theme.</li>
+                <li>High scores persist on the device; the dashboard ranks them by score.</li>
+            </ul>
+        </section>
+
+        <!-- ===== How to run ===== -->
+        <section class="section" id="how-to-run">
+            <h2>How to run it</h2>
+
+            <h3>On a real Roku (developer mode)</h3>
+            <pre><code>git clone https://github.com/HectorIFC/BrickRain.git
+cd BrickRain
+npm install
+cp .env.example .env          # set ROKU_DEV_TARGET (device IP) and ROKU_DEV_PASSWORD
+npm run deploy                # builds and sideloads out/brickrain.zip</code></pre>
+            <p>Enable developer mode first: on the remote press
+               <em>Home &times;3, Up, Up, Right, Left, Right, Left, Right</em>.</p>
+
+            <h3>Without a Roku (in the browser via brs-engine)</h3>
+            <pre><code>npm install
+npm run build                 # produces out/brickrain.zip
+npm run test:logic            # run the full logic suite headless (no device)</code></pre>
+            <p>Drop <code>out/brickrain.zip</code> into the
+               <a href="https://lvcabral.com/brs/">brs-engine web app</a>
+               to play the channel in a browser.</p>
+        </section>
+
+        <!-- ===== Architecture & credits ===== -->
+        <section class="section" id="architecture">
+            <h2>Architecture &amp; credits</h2>
+            <p>BrickRain is split into a <strong>pure functional core</strong>
+               (<code>source/logic/</code> — plain data in, plain data out, no SceneGraph
+               dependencies) and a thin <strong>imperative shell</strong>
+               (<code>components/</code> — SceneGraph nodes that render state and forward input).
+               That separation is what makes the whole game testable without a device: the core
+               is covered by Rooibos and a headless brs-node suite. See the
+               <a href="https://github.com/HectorIFC/BrickRain#readme">README</a> for the deep dive.</p>
+            <p>All artwork and audio are <strong>original</strong>, generated from scratch by the
+               scripts in <code>tools/</code> (<code>generate_artwork.py</code>,
+               <code>generate_sounds.py</code>) — no third-party assets, no copyright concerns.</p>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>BrickRain &middot; MIT License &middot;
+           <a href="https://github.com/HectorIFC/BrickRain">github.com/HectorIFC/BrickRain</a></p>
+    </footer>
+</body>
+</html>

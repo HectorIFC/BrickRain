@@ -24,7 +24,9 @@ sub showDashboard()
     m.gameScreen.visible = false
     m.leaderboardScreen.entries = m.leaderboard.entries
     m.leaderboardScreen.visible = true
-    m.leaderboardScreen.setFocus(true)
+    ' Bump focusRequest instead of focusing the screen group, so focus reliably
+    ' lands on the Start button even on first boot (when visible is already true).
+    m.leaderboardScreen.focusRequest = m.leaderboardScreen.focusRequest + 1
 end sub
 
 ' Start pressed on the dashboard: open the keyboard dialog, prefilled with the
@@ -37,9 +39,14 @@ end sub
 
 sub onNicknameResult()
     outcome = m.nicknameDialog.result
-    if outcome = invalid or not outcome.confirmed then return
-    brickrain.registry.saveLastNickname(outcome.nickname)
-    startGame(outcome.nickname)
+    if outcome = invalid then return
+    if outcome.confirmed
+        brickrain.registry.saveLastNickname(outcome.nickname)
+        startGame(outcome.nickname)
+    else
+        ' Cancelled: hand focus back to the dashboard Start button.
+        m.leaderboardScreen.focusRequest = m.leaderboardScreen.focusRequest + 1
+    end if
 end sub
 
 sub startGame(nickname as string)

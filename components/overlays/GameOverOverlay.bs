@@ -20,7 +20,7 @@ end sub
 
 sub onVisibleChange()
     if m.top.visible
-        m.menu.jumpToItem = 0
+        m.menu.focusButton = 0
         m.menu.setFocus(true)
     end if
 end sub

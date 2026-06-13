@@ -10,13 +10,16 @@ sub init()
     m.startMenu = m.top.findNode("startMenu")
     m.startMenu.buttons = ["Start Game"]
     m.startMenu.observeField("buttonSelected", "onStart")
-    m.top.observeField("visible", "onVisibleChange")
     m.rowNodes = []
     m.maxRows = 10
+    ' Focus the Start button as soon as the dashboard is created so the remote
+    ' can act on it immediately on boot.
+    m.startMenu.setFocus(true)
 end sub
 
-sub onVisibleChange()
-    if m.top.visible then m.startMenu.setFocus(true)
+' Re-takes focus when MainScene shows the dashboard (e.g. returning from a game).
+sub onFocusRequest()
+    m.startMenu.setFocus(true)
 end sub
 
 sub onStart()

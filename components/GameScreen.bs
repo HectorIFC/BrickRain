@@ -54,6 +54,7 @@ sub startGame()
     m.state = brickrain.game.create()
     m.heldKey = ""
     m.pendingRecord = false
+    m.lastLevel = 0
     m.pauseOverlay.visible = false
     m.gameOverOverlay.visible = false
     m.top.quitToDashboard = false
@@ -167,7 +168,13 @@ sub perform(newState as object)
 end sub
 
 sub renderState()
+    ' Push a new well theme only when the level actually changes.
+    if m.state.score.level <> m.lastLevel
+        m.boardView.theme = brickrain.theme.boardThemeForLevel(m.state.score.level)
+        m.lastLevel = m.state.score.level
+    end if
     m.boardView.boardColors = buildBoardColors(m.state)
+    m.boardView.ghostCells = buildGhostCells(m.state)
     m.sidePanel.nickname = m.top.playerNickname
     m.sidePanel.scoreValue = m.state.score.score
     m.sidePanel.levelValue = m.state.score.level
@@ -175,6 +182,25 @@ sub renderState()
     m.sidePanel.holdType = m.state.hold
     m.sidePanel.nextTypes = brickrain.game.nextTypes(m.state, 3)
 end sub
+
+' Ghost landing cells in visible-grid coords, excluding any that coincide with
+' the active piece (so the outline only shows the empty drop target).
+function buildGhostCells(state as object) as object
+    if state.active = invalid then return []
+    hidden = state.board.hiddenRows
+    active = {}
+    for each cell in brickrain.game.activeCells(state)
+        active[cell.x.toStr() + "," + cell.y.toStr()] = true
+    end for
+    visible = []
+    for each cell in brickrain.game.ghostCells(state)
+        v = cell.y - hidden
+        if v >= 0 and active[cell.x.toStr() + "," + cell.y.toStr()] = invalid
+            visible.push({ x: cell.x, y: v })
+        end if
+    end for
+    return visible
+end function
 
 ' Flattens the visible board plus the active piece into a row-major color-index
 ' array for BoardView (hidden spawn rows are dropped).

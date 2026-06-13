@@ -8,6 +8,9 @@
     <interface>
         <field id="entries" type="array" onChange="onEntriesChange" />
         <field id="startRequested" type="integer" value="0" />
+        <!-- MainScene bumps this to hand focus to the Start button (the value
+             always changes, so the observer fires even on first boot). -->
+        <field id="focusRequest" type="integer" value="0" onChange="onFocusRequest" />
     </interface>
     <children>
         <Rectangle width="1920" height="1080" color="0x080A22FF" />

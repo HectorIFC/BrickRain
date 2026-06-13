@@ -73,4 +73,22 @@ namespace brickrain.theme
         return 80
     end function
 
+    ' Level-based well theme: the empty-cell and grid colors cycle through a
+    ' small palette as the player levels up, giving a visible mood shift without
+    ' changing the canonical piece colors (which carry piece identity). Piece
+    ' colors stay fixed; only the backdrop tints.
+    function boardThemeForLevel(level as integer) as object
+        themes = [
+            { empty: "0x141228FF", grid: "0x242246FF" },
+            { empty: "0x1A1030FF", grid: "0x322052FF" },
+            { empty: "0x0E1E26FF", grid: "0x1C3A46FF" },
+            { empty: "0x241018FF", grid: "0x44202EFF" },
+            { empty: "0x101F14FF", grid: "0x1E3A26FF" },
+            { empty: "0x201A0EFF", grid: "0x40341CFF" }
+        ]
+        index = (level - 1) mod themes.count()
+        if index < 0 then index = 0
+        return themes[index]
+    end function
+
 end namespace

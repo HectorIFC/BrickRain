@@ -10,5 +10,7 @@
         <field id="boardColors" type="array" onChange="onBoardColorsChange" />
         <!-- Up to four {x, y} cells (visible-grid coords) to outline as the ghost piece. -->
         <field id="ghostCells" type="array" onChange="onGhostCellsChange" />
+        <!-- { empty, grid } colors for the current level's well theme. -->
+        <field id="theme" type="assocarray" onChange="onThemeChange" />
     </interface>
 </component>
