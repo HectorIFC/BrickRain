@@ -1,0 +1,86 @@
+import "pkg:/source/theme.bs"
+import "pkg:/source/logic/piece.bs"
+
+' Updates the stat labels and renders the hold/next previews. Each preview piece
+' is drawn with four pooled rectangles positioned at the tetromino's spawn cells,
+' so no nodes are created or destroyed when the queue changes.
+
+sub init()
+    m.miniPitch = 26
+    m.colors = brickrain.theme.cellColors()
+    m.nicknameLabel = m.top.findNode("nicknameLabel")
+    m.scoreLabel = m.top.findNode("scoreLabel")
+    m.levelLabel = m.top.findNode("levelLabel")
+    m.linesLabel = m.top.findNode("linesLabel")
+
+    m.holdRects = buildPreviewPool(m.top.findNode("holdSlot"), 1)
+    m.nextRects = buildPreviewPool(m.top.findNode("nextSlot"), 3)
+end sub
+
+' Builds `slots` mini-previews of four rectangles each, stacked vertically,
+' and returns a 2D array [slotIndex][0..3] of the rectangles.
+function buildPreviewPool(container as object, slots as integer) as object
+    pool = []
+    for slot = 0 to slots - 1
+        rects = []
+        for i = 0 to 3
+            rect = createObject("roSGNode", "Rectangle")
+            rect.width = m.miniPitch - 4
+            rect.height = m.miniPitch - 4
+            rect.visible = false
+            container.appendChild(rect)
+            rects.push(rect)
+        end for
+        pool.push({ rects: rects, originY: slot * (m.miniPitch * 3) })
+    end for
+    return pool
+end function
+
+' Positions one preview's four rectangles at the piece's spawn cells (or hides
+' them all when the slot is empty).
+sub renderPreview(slot as object, pieceType as string)
+    if pieceType = invalid or pieceType = ""
+        for each rect in slot.rects
+            rect.visible = false
+        end for
+        return
+    end if
+    cells = brickrain.piece.cellsFor(pieceType, 0)
+    colorIndex = brickrain.piece.typeIndex(pieceType)
+    for i = 0 to 3
+        rect = slot.rects[i]
+        cell = cells[i]
+        rect.translation = [cell.x * m.miniPitch, slot.originY + cell.y * m.miniPitch]
+        rect.color = m.colors[colorIndex]
+        rect.visible = true
+    end for
+end sub
+
+sub onNicknameChange()
+    m.nicknameLabel.text = m.top.nickname
+end sub
+
+sub onScoreChange()
+    m.scoreLabel.text = m.top.scoreValue.toStr()
+end sub
+
+sub onLevelChange()
+    m.levelLabel.text = m.top.levelValue.toStr()
+end sub
+
+sub onLinesChange()
+    m.linesLabel.text = m.top.linesValue.toStr()
+end sub
+
+sub onHoldChange()
+    renderPreview(m.holdRects[0], m.top.holdType)
+end sub
+
+sub onNextChange()
+    types = m.top.nextTypes
+    for slot = 0 to m.nextRects.count() - 1
+        pieceType = ""
+        if types <> invalid and slot < types.count() then pieceType = types[slot]
+        renderPreview(m.nextRects[slot], pieceType)
+    end for
+end sub

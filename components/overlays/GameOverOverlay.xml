@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Game-over screen: final score, the player's best, an optional "new record"
+  banner, and the play-again / back-to-dashboard menu. GameScreen pushes the
+  result values in and observes the resulting `selection`.
+-->
+<component name="GameOverOverlay" extends="Group">
+    <interface>
+        <field id="finalScore" type="integer" onChange="onValuesChange" />
+        <field id="bestScore" type="integer" onChange="onValuesChange" />
+        <field id="isNewRecord" type="boolean" onChange="onValuesChange" />
+        <field id="selection" type="string" value="" />
+    </interface>
+    <children>
+        <Rectangle width="1920" height="1080" color="0x080A22E6" />
+        <Label text="GAME OVER" font="font:LargeBoldSystemFont" color="0xF00000FF" horizAlign="center" width="1920" translation="[0, 280]" />
+        <Label id="recordBanner" text="NEW RECORD!" font="font:LargeBoldSystemFont" color="0xF0F000FF" horizAlign="center" width="1920" translation="[0, 360]" visible="false" />
+        <Label id="scoreLabel" text="" font="font:MediumBoldSystemFont" color="0xF5F5FAFF" horizAlign="center" width="1920" translation="[0, 440]" />
+        <Label id="bestLabel" text="" font="font:MediumSystemFont" color="0x8A8AB0FF" horizAlign="center" width="1920" translation="[0, 490]" />
+        <ButtonGroup id="menu" translation="[820, 580]" minWidth="280" />
+    </children>
+</component>

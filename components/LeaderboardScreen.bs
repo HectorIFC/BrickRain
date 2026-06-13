@@ -1,0 +1,68 @@
+import "pkg:/source/theme.bs"
+
+' Renders the ranking table from the entries MainScene supplies and signals a
+' start request when the Start Game button is activated. Table rows are rebuilt
+' only when the entries change (entering the dashboard), never per frame.
+
+sub init()
+    m.rows = m.top.findNode("rows")
+    m.emptyState = m.top.findNode("emptyState")
+    m.startMenu = m.top.findNode("startMenu")
+    m.startMenu.buttons = ["Start Game"]
+    m.startMenu.observeField("buttonSelected", "onStart")
+    m.top.observeField("visible", "onVisibleChange")
+    m.rowNodes = []
+    m.maxRows = 10
+end sub
+
+sub onVisibleChange()
+    if m.top.visible then m.startMenu.setFocus(true)
+end sub
+
+sub onStart()
+    m.top.startRequested = m.top.startRequested + 1
+end sub
+
+sub onEntriesChange()
+    clearRows()
+    entries = m.top.entries
+    if entries = invalid or entries.count() = 0
+        m.emptyState.visible = true
+        return
+    end if
+    m.emptyState.visible = false
+
+    count = entries.count()
+    if count > m.maxRows then count = m.maxRows
+    for i = 0 to count - 1
+        addRow(i, entries[i])
+    end for
+end sub
+
+sub clearRows()
+    for each node in m.rowNodes
+        m.rows.removeChild(node)
+    end for
+    m.rowNodes = []
+end sub
+
+' Adds one ranking row as three positioned labels (nickname, score, date).
+sub addRow(index as integer, entry as object)
+    rowY = index * 52
+    rankColor = brickrain.theme.textColor()
+    if index = 0 then rankColor = brickrain.theme.accentColor()
+
+    appendLabel((index + 1).toStr() + ". " + entry.nickname, 0, rowY, rankColor)
+    appendLabel(entry.score.toStr(), 440, rowY, brickrain.theme.textColor())
+    appendLabel(entry.date, 640, rowY, brickrain.theme.textColor())
+end sub
+
+sub appendLabel(text as string, x as integer, y as integer, color as string)
+    label = createObject("roSGNode", "Label")
+    label.text = text
+    label.font = "font:MediumBoldSystemFont"
+    label.color = color
+    label.translation = [x, y]
+    m.rows.appendChild(label)
+    m.rowNodes.push(label)
+end sub

@@ -1,0 +1,52 @@
+import "pkg:/source/logic/leaderboard.bs"
+
+' Drives the platform keyboard dialog and validates the entered nickname using
+' the same pure rules the logic tests cover (2-12 alphanumeric, trimmed). Invalid
+' input keeps the dialog open with an inline message; OK confirms, the second
+' button cancels.
+
+sub onShowChange()
+    if m.top.show
+        openDialog()
+    else
+        closeDialog()
+    end if
+end sub
+
+sub openDialog()
+    dialog = createObject("roSGNode", "StandardKeyboardDialog")
+    dialog.title = "Enter your nickname"
+    dialog.message = ["2-12 letters or digits"]
+    dialog.text = m.top.lastNickname
+    dialog.buttons = ["OK", "Cancel"]
+    dialog.observeField("buttonSelected", "onButton")
+    m.dialog = dialog
+    m.top.getScene().dialog = dialog
+end sub
+
+sub onButton()
+    if m.dialog = invalid then return
+    index = m.dialog.buttonSelected
+    if index = 0
+        validation = brickrain.leaderboard.validateNickname(m.dialog.text)
+        if validation.valid
+            finish({ confirmed: true, nickname: validation.value })
+        else
+            m.dialog.message = [validation.reason]
+        end if
+    else
+        finish({ confirmed: false, nickname: "" })
+    end if
+end sub
+
+sub finish(outcome as object)
+    closeDialog()
+    m.top.show = false
+    m.top.result = outcome
+end sub
+
+sub closeDialog()
+    scene = m.top.getScene()
+    if scene <> invalid then scene.dialog = invalid
+    m.dialog = invalid
+end sub

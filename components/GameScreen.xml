@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  The playable screen. Owns the board renderer, side panel and the two overlays,
+  drives a single repeating Timer as the game tick, translates remote input into
+  game actions (with DAS auto-shift) and plays the sound effects. All game rules
+  come from the pure source/logic/game.bs state machine; this is the shell.
+-->
+<component name="GameScreen" extends="Group">
+    <interface>
+        <!-- Set by MainScene to (re)start a game for this player. -->
+        <field id="playerNickname" type="string" onChange="onStartRequested" />
+        <field id="playerBest" type="integer" />
+        <!-- Outputs observed by MainScene. -->
+        <field id="gameResult" type="assocarray" />
+        <field id="quitToDashboard" type="boolean" value="false" />
+    </interface>
+    <children>
+        <Rectangle id="background" width="1920" height="1080" color="0x080A22FF" />
+        <BoardView id="boardView" translation="[360, 80]" />
+        <SidePanel id="sidePanel" translation="[900, 90]" />
+        <PauseOverlay id="pauseOverlay" visible="false" />
+        <GameOverOverlay id="gameOverOverlay" visible="false" />
+        <Timer id="tickTimer" repeat="true" duration="0.033" />
+        <Timer id="recordTimer" repeat="false" duration="1.2" />
+    </children>
+</component>

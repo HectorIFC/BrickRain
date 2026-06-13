@@ -1,0 +1,25 @@
+' Pause menu controller. Builds the button list once and forwards the activated
+' button to GameScreen through the `selection` field. Focus is taken whenever the
+' overlay becomes visible so the remote drives the menu immediately.
+
+sub init()
+    m.menu = m.top.findNode("menu")
+    m.menu.buttons = ["Resume", "Restart", "Quit to Dashboard"]
+    m.selections = ["resume", "restart", "quit"]
+    m.menu.observeField("buttonSelected", "onButton")
+    m.top.observeField("visible", "onVisibleChange")
+end sub
+
+sub onVisibleChange()
+    if m.top.visible
+        m.menu.jumpToItem = 0
+        m.menu.setFocus(true)
+    end if
+end sub
+
+sub onButton()
+    index = m.menu.buttonSelected
+    if index >= 0 and index < m.selections.count()
+        m.top.selection = m.selections[index]
+    end if
+end sub

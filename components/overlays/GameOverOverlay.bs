@@ -1,0 +1,33 @@
+' Game-over controller. Renders the final score / best / record banner and maps
+' the chosen button to a `selection` string (again / dashboard) for GameScreen.
+
+sub init()
+    m.recordBanner = m.top.findNode("recordBanner")
+    m.scoreLabel = m.top.findNode("scoreLabel")
+    m.bestLabel = m.top.findNode("bestLabel")
+    m.menu = m.top.findNode("menu")
+    m.menu.buttons = ["Play Again", "Back to Dashboard"]
+    m.selections = ["again", "dashboard"]
+    m.menu.observeField("buttonSelected", "onButton")
+    m.top.observeField("visible", "onVisibleChange")
+end sub
+
+sub onValuesChange()
+    m.scoreLabel.text = "Score: " + m.top.finalScore.toStr()
+    m.bestLabel.text = "Best: " + m.top.bestScore.toStr()
+    m.recordBanner.visible = m.top.isNewRecord
+end sub
+
+sub onVisibleChange()
+    if m.top.visible
+        m.menu.jumpToItem = 0
+        m.menu.setFocus(true)
+    end if
+end sub
+
+sub onButton()
+    index = m.menu.buttonSelected
+    if index >= 0 and index < m.selections.count()
+        m.top.selection = m.selections[index]
+    end if
+end sub

@@ -1,0 +1,78 @@
+import "pkg:/source/logic/leaderboard.bs"
+import "pkg:/source/registryAdapter.bs"
+
+' Screen router and persistence owner. The leaderboard lives in the registry via
+' the adapter; this scene loads it on boot, feeds it to the dashboard, and upserts
+' each finished game back into it (best score per nickname, today's date).
+
+sub init()
+    m.leaderboardScreen = m.top.findNode("leaderboardScreen")
+    m.gameScreen = m.top.findNode("gameScreen")
+    m.nicknameDialog = m.top.findNode("nicknameDialog")
+
+    m.leaderboard = brickrain.registry.loadLeaderboard()
+
+    m.leaderboardScreen.observeField("startRequested", "onStartRequested")
+    m.nicknameDialog.observeField("result", "onNicknameResult")
+    m.gameScreen.observeField("gameResult", "onGameResult")
+    m.gameScreen.observeField("quitToDashboard", "onQuitToDashboard")
+
+    showDashboard()
+end sub
+
+sub showDashboard()
+    m.gameScreen.visible = false
+    m.leaderboardScreen.entries = m.leaderboard.entries
+    m.leaderboardScreen.visible = true
+    m.leaderboardScreen.setFocus(true)
+end sub
+
+' Start pressed on the dashboard: open the keyboard dialog, prefilled with the
+' last nickname used on this device.
+sub onStartRequested()
+    if m.leaderboardScreen.startRequested = 0 then return
+    m.nicknameDialog.lastNickname = brickrain.registry.loadLastNickname()
+    m.nicknameDialog.show = true
+end sub
+
+sub onNicknameResult()
+    outcome = m.nicknameDialog.result
+    if outcome = invalid or not outcome.confirmed then return
+    brickrain.registry.saveLastNickname(outcome.nickname)
+    startGame(outcome.nickname)
+end sub
+
+sub startGame(nickname as string)
+    best = brickrain.leaderboard.bestScoreFor(m.leaderboard, nickname)
+    if best < 0 then best = 0
+    m.leaderboardScreen.visible = false
+    m.gameScreen.visible = true
+    m.gameScreen.playerBest = best
+    ' Setting the nickname last triggers GameScreen to start the game.
+    m.gameScreen.playerNickname = nickname
+end sub
+
+' A finished game: record the result (never downgrades a better past score) and
+' refresh the player's best so a "play again" round compares against it.
+sub onGameResult()
+    result = m.gameScreen.gameResult
+    if result = invalid or result.nickname = invalid then return
+    m.leaderboard = brickrain.leaderboard.upsert(m.leaderboard, result.nickname, result.score, todayDate())
+    brickrain.registry.saveLeaderboard(m.leaderboard)
+    m.leaderboardScreen.entries = m.leaderboard.entries
+
+    refreshedBest = brickrain.leaderboard.bestScoreFor(m.leaderboard, result.nickname)
+    if refreshedBest < 0 then refreshedBest = 0
+    m.gameScreen.playerBest = refreshedBest
+end sub
+
+sub onQuitToDashboard()
+    if m.gameScreen.quitToDashboard then showDashboard()
+end sub
+
+' Today's local date formatted dd/mm/yyyy for leaderboard entries.
+function todayDate() as string
+    now = createObject("roDateTime")
+    now.toLocalTime()
+    return brickrain.leaderboard.formatDate(now.getDayOfMonth(), now.getMonth(), now.getYear())
+end function

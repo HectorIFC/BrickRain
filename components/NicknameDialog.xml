@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Wrapper around the platform StandardKeyboardDialog. It owns no visuals of its
+  own (extends Node): when `show` is set it attaches a keyboard dialog to the
+  scene, validates the typed nickname with the pure leaderboard logic and reports
+  the outcome through `result` = { confirmed, nickname }.
+-->
+<component name="NicknameDialog" extends="Node">
+    <interface>
+        <field id="lastNickname" type="string" value="" />
+        <field id="show" type="boolean" value="false" onChange="onShowChange" />
+        <field id="result" type="assocarray" />
+    </interface>
+</component>

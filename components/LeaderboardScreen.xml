@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Home screen: pixel-wordmark logo, the ranking table (nickname | score | date,
+  already sorted by the leaderboard logic) and the focused Start Game button.
+  MainScene supplies the entries; pressing Start bumps `startRequested`.
+-->
+<component name="LeaderboardScreen" extends="Group">
+    <interface>
+        <field id="entries" type="array" onChange="onEntriesChange" />
+        <field id="startRequested" type="integer" value="0" />
+    </interface>
+    <children>
+        <Rectangle width="1920" height="1080" color="0x080A22FF" />
+        <Poster id="logo" uri="pkg:/assets/images/icon_focus_fhd.png" width="460" height="345" loadDisplayMode="scaleToFit" translation="[730, 40]" />
+
+        <Group id="table" translation="[560, 430]">
+            <Label text="NICKNAME" font="font:MediumBoldSystemFont" color="0x8A8AB0FF" translation="[0, 0]" />
+            <Label text="SCORE" font="font:MediumBoldSystemFont" color="0x8A8AB0FF" translation="[440, 0]" />
+            <Label text="DATE" font="font:MediumBoldSystemFont" color="0x8A8AB0FF" translation="[640, 0]" />
+            <Group id="rows" translation="[0, 56]" />
+        </Group>
+
+        <Label id="emptyState" text="No scores yet — be the first!" font="font:MediumBoldSystemFont" color="0xF5F5FAFF" horizAlign="center" width="800" translation="[560, 500]" visible="false" />
+
+        <ButtonGroup id="startMenu" translation="[820, 930]" minWidth="280" />
+    </children>
+</component>

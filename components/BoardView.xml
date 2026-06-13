@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Node-pooled renderer for the 10x20 visible well. The 200 cell rectangles are
+  created once in init() and only ever recolored, never created/destroyed per
+  frame, so the render thread stays light on Roku Express class hardware.
+-->
+<component name="BoardView" extends="Group">
+    <interface>
+        <!-- Flat row-major array of 200 color indices (0 = empty, 1..7 = piece type). -->
+        <field id="boardColors" type="array" onChange="onBoardColorsChange" />
+        <!-- Up to four {x, y} cells (visible-grid coords) to outline as the ghost piece. -->
+        <field id="ghostCells" type="array" onChange="onGhostCellsChange" />
+    </interface>
+</component>

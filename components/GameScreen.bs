@@ -1,0 +1,313 @@
+import "pkg:/source/logic/game.bs"
+import "pkg:/source/logic/piece.bs"
+import "pkg:/source/theme.bs"
+
+' Imperative shell around the pure game state machine. Every remote action and
+' every tick produces a fresh game state (with an events list); this component
+' reflects that state into the board/side-panel nodes and plays the matching
+' sound effects.
+
+sub init()
+    m.boardView = m.top.findNode("boardView")
+    m.sidePanel = m.top.findNode("sidePanel")
+    m.pauseOverlay = m.top.findNode("pauseOverlay")
+    m.gameOverOverlay = m.top.findNode("gameOverOverlay")
+    m.tickTimer = m.top.findNode("tickTimer")
+    m.recordTimer = m.top.findNode("recordTimer")
+
+    m.tickTimer.observeField("fire", "onTick")
+    m.recordTimer.observeField("fire", "onRecordTimer")
+    m.pauseOverlay.observeField("selection", "onPauseSelection")
+    m.gameOverOverlay.observeField("selection", "onGameOverSelection")
+
+    ' DAS (delayed auto-shift) state for held left/right/down.
+    m.dasInitialMs = 250
+    m.dasRepeatMs = 50
+    m.heldKey = ""
+    m.dasPhase = "initial"
+    m.dasSpan = createObject("roTimespan")
+    m.tickSpan = createObject("roTimespan")
+    m.pendingRecord = false
+
+    preloadSounds()
+end sub
+
+' Preloads the nine sound effects as cached roAudioResource objects, guarding
+' each creation so a missing resource (or a headless run) never crashes boot.
+sub preloadSounds()
+    m.sounds = {}
+    names = ["move", "rotate", "hard_drop", "lock", "line_clear", "level_up", "game_over", "new_record", "menu_select"]
+    for each name in names
+        resource = createObject("roAudioResource", "pkg:/assets/sounds/" + name + ".wav")
+        if resource <> invalid then m.sounds[name] = resource
+    end for
+end sub
+
+' --- lifecycle ---
+
+' Triggered when MainScene sets playerNickname to begin a game.
+sub onStartRequested()
+    if m.top.playerNickname <> invalid and m.top.playerNickname <> "" then startGame()
+end sub
+
+sub startGame()
+    m.state = brickrain.game.create()
+    m.heldKey = ""
+    m.pendingRecord = false
+    m.pauseOverlay.visible = false
+    m.gameOverOverlay.visible = false
+    m.top.quitToDashboard = false
+    m.tickSpan.mark()
+    m.tickTimer.control = "start"
+    m.top.setFocus(true)
+    renderState()
+end sub
+
+' --- input ---
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if m.state = invalid then return false
+
+    if not press
+        if key = m.heldKey then m.heldKey = ""
+        return false
+    end if
+
+    if m.state.status = "paused"
+        ' Let the focused pause overlay handle navigation; Back exits to dashboard.
+        if key = "back"
+            quitToDashboard()
+            return true
+        end if
+        return false
+    end if
+
+    if m.state.status = "gameOver" then return false
+
+    if key = "left"
+        perform(brickrain.game.moveLeft(m.state))
+        beginDas("left")
+        return true
+    else if key = "right"
+        perform(brickrain.game.moveRight(m.state))
+        beginDas("right")
+        return true
+    else if key = "down"
+        perform(brickrain.game.softDrop(m.state))
+        beginDas("down")
+        return true
+    else if key = "up"
+        perform(brickrain.game.hardDrop(m.state))
+        return true
+    else if key = "OK"
+        perform(brickrain.game.rotateCw(m.state))
+        return true
+    else if key = "rewind"
+        perform(brickrain.game.rotateCcw(m.state))
+        return true
+    else if key = "fastforward"
+        ' Hold slot: the PRD lists Hold as a feature but assigns no button in the
+        ' controls table, so the free fast-forward key is bound to it here.
+        perform(brickrain.game.holdSwap(m.state))
+        return true
+    else if key = "play"
+        openPause()
+        return true
+    else if key = "back"
+        openPause()
+        return true
+    end if
+    return false
+end function
+
+sub beginDas(key as string)
+    m.heldKey = key
+    m.dasPhase = "initial"
+    m.dasSpan.mark()
+end sub
+
+' --- tick ---
+
+sub onTick()
+    if m.state = invalid or m.state.status <> "playing" then return
+    handleDasRepeat()
+    dt = m.tickSpan.totalMilliseconds()
+    m.tickSpan.mark()
+    perform(brickrain.game.advance(m.state, dt))
+end sub
+
+' Issues auto-shift repeats while a direction key is held: one move after the
+' initial delay, then one every repeat interval.
+sub handleDasRepeat()
+    if m.heldKey = "" then return
+    elapsed = m.dasSpan.totalMilliseconds()
+    threshold = m.dasInitialMs
+    if m.dasPhase = "repeat" then threshold = m.dasRepeatMs
+    if elapsed < threshold then return
+
+    m.dasSpan.mark()
+    m.dasPhase = "repeat"
+    if m.heldKey = "left"
+        perform(brickrain.game.moveLeft(m.state))
+    else if m.heldKey = "right"
+        perform(brickrain.game.moveRight(m.state))
+    else if m.heldKey = "down"
+        perform(brickrain.game.softDrop(m.state))
+    end if
+end sub
+
+' --- state application ---
+
+' Adopts a new game state, plays its sounds, repaints and reacts to game over.
+sub perform(newState as object)
+    m.state = newState
+    playSounds(newState.events)
+    renderState()
+    if newState.status = "gameOver" then onGameOver()
+end sub
+
+sub renderState()
+    m.boardView.boardColors = buildBoardColors(m.state)
+    m.sidePanel.nickname = m.top.playerNickname
+    m.sidePanel.scoreValue = m.state.score.score
+    m.sidePanel.levelValue = m.state.score.level
+    m.sidePanel.linesValue = m.state.score.lines
+    m.sidePanel.holdType = m.state.hold
+    m.sidePanel.nextTypes = brickrain.game.nextTypes(m.state, 3)
+end sub
+
+' Flattens the visible board plus the active piece into a row-major color-index
+' array for BoardView (hidden spawn rows are dropped).
+function buildBoardColors(state as object) as object
+    board = state.board
+    hidden = board.hiddenRows
+    cols = board.width
+    visRows = board.height - hidden
+    flat = []
+    for v = 0 to visRows - 1
+        for col = 0 to cols - 1
+            flat.push(board.grid[(v + hidden) * cols + col])
+        end for
+    end for
+    if state.active <> invalid
+        index = brickrain.piece.typeIndex(state.active.pieceType)
+        for each cell in brickrain.game.activeCells(state)
+            v = cell.y - hidden
+            if v >= 0 and v < visRows and cell.x >= 0 and cell.x < cols
+                flat[v * cols + cell.x] = index
+            end if
+        end for
+    end if
+    return flat
+end function
+
+' --- sounds ---
+
+sub playSounds(events as object)
+    for each event in events
+        if event.kind = "move"
+            playSound("move")
+        else if event.kind = "rotate"
+            playSound("rotate")
+        else if event.kind = "hardDrop"
+            playSound("hard_drop")
+        else if event.kind = "lock"
+            playSound("lock")
+        else if event.kind = "lineClear"
+            playSound("line_clear")
+        else if event.kind = "levelUp"
+            playSound("level_up")
+        else if event.kind = "gameOver"
+            playSound("game_over")
+        else if event.kind = "pause" or event.kind = "resume"
+            playSound("menu_select")
+        end if
+    end for
+end sub
+
+sub playSound(name as string)
+    if m.sounds[name] <> invalid then m.sounds[name].trigger(60)
+end sub
+
+' --- pause ---
+
+sub openPause()
+    perform(brickrain.game.pause(m.state))
+    if m.state.status <> "paused" then return
+    m.tickTimer.control = "stop"
+    m.heldKey = ""
+    m.pauseOverlay.visible = true
+    m.pauseOverlay.setFocus(true)
+end sub
+
+sub resumeGame()
+    m.pauseOverlay.visible = false
+    perform(brickrain.game.resume(m.state))
+    m.tickSpan.mark()
+    m.tickTimer.control = "start"
+    m.top.setFocus(true)
+end sub
+
+sub onPauseSelection()
+    selection = m.pauseOverlay.selection
+    if selection = "resume"
+        resumeGame()
+    else if selection = "restart"
+        startGame()
+    else if selection = "quit"
+        quitToDashboard()
+    end if
+end sub
+
+' --- game over ---
+
+sub onGameOver()
+    m.tickTimer.control = "stop"
+    m.heldKey = ""
+    isNewRecord = m.state.score.score > m.top.playerBest
+
+    ' Persist the result immediately so the dashboard reflects it on return.
+    m.top.gameResult = {
+        nickname: m.top.playerNickname,
+        score: m.state.score.score,
+        lines: m.state.score.lines,
+        isNewRecord: isNewRecord
+    }
+
+    if isNewRecord
+        m.pendingRecord = true
+        m.recordTimer.control = "start"
+    end if
+
+    bestScore = m.top.playerBest
+    if m.state.score.score > bestScore then bestScore = m.state.score.score
+    m.gameOverOverlay.finalScore = m.state.score.score
+    m.gameOverOverlay.bestScore = bestScore
+    m.gameOverOverlay.isNewRecord = isNewRecord
+    m.gameOverOverlay.visible = true
+    m.gameOverOverlay.setFocus(true)
+end sub
+
+' new_record.wav plays shortly after game_over.wav so the two do not overlap.
+sub onRecordTimer()
+    if m.pendingRecord
+        playSound("new_record")
+        m.pendingRecord = false
+    end if
+end sub
+
+sub onGameOverSelection()
+    selection = m.gameOverOverlay.selection
+    if selection = "again"
+        startGame()
+    else if selection = "dashboard"
+        quitToDashboard()
+    end if
+end sub
+
+sub quitToDashboard()
+    m.tickTimer.control = "stop"
+    m.pauseOverlay.visible = false
+    m.gameOverOverlay.visible = false
+    m.top.quitToDashboard = true
+end sub
