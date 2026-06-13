@@ -1,0 +1,161 @@
+' Leaderboard rules: one entry per nickname (best score only), ranking,
+' capacity cap and JSON (de)serialization for registry persistence.
+' Pure module: registry I/O lives in the UI layer, never here.
+namespace brickrain.leaderboard
+
+    function maxEntries() as integer
+        return 50
+    end function
+
+    function create() as object
+        return { entries: [] }
+    end function
+
+    ' Validates and normalizes a nickname: trimmed, 2-12 chars, alphanumeric.
+    ' Returns { valid, value, reason }.
+    function validateNickname(nickname as string) as object
+        trimmed = nickname.trim()
+        if len(trimmed) < 2 or len(trimmed) > 12
+            return { valid: false, value: trimmed, reason: "Nickname must be 2 to 12 characters long" }
+        end if
+        pattern = createObject("roRegex", "^[A-Za-z0-9]+$", "")
+        if not pattern.isMatch(trimmed)
+            return { valid: false, value: trimmed, reason: "Only letters and digits are allowed" }
+        end if
+        return { valid: true, value: trimmed, reason: "" }
+    end function
+
+    ' Formats a calendar date as dd/mm/yyyy.
+    function formatDate(day as integer, month as integer, year as integer) as string
+        return pad2(day) + "/" + pad2(month) + "/" + year.toStr()
+    end function
+
+    ' Sortable integer key (yyyymmdd) for a dd/mm/yyyy date string.
+    ' Each part is converted to integer BEFORE the arithmetic: val() returns
+    ' a 32-bit float whose mantissa cannot hold yyyymmdd-sized numbers.
+    function dateKey(dateText as string) as integer
+        if len(dateText) <> 10 then return 0
+        day = int(val(mid(dateText, 1, 2)))
+        month = int(val(mid(dateText, 4, 2)))
+        year = int(val(mid(dateText, 7, 4)))
+        return year * 10000 + month * 100 + day
+    end function
+
+    ' Inserts or updates the entry for a nickname. The nickname key is
+    ' case-insensitive; the stored casing is the one used when the best
+    ' score was achieved. A lower or equal score never downgrades an entry.
+    ' Result is sorted (score desc, earliest date wins ties) and capped.
+    function upsert(leaderboardState as object, nickname as string, score as integer, dateText as string) as object
+        entries = []
+        found = false
+        for each entry in leaderboardState.entries
+            if lcase(entry.nickname) = lcase(nickname)
+                found = true
+                if score > entry.score
+                    entries.push({ nickname: nickname, score: score, date: dateText })
+                else
+                    entries.push(cloneEntry(entry))
+                end if
+            else
+                entries.push(cloneEntry(entry))
+            end if
+        end for
+        if not found
+            entries.push({ nickname: nickname, score: score, date: dateText })
+        end if
+        return { entries: capEntries(sortEntries(entries)) }
+    end function
+
+    ' Best score currently stored for a nickname, or -1 when absent.
+    function bestScoreFor(leaderboardState as object, nickname as string) as integer
+        for each entry in leaderboardState.entries
+            if lcase(entry.nickname) = lcase(nickname) then return entry.score
+        end for
+        return -1
+    end function
+
+    ' Insertion sort: score descending, ties broken by earliest date.
+    ' At most 50 + 1 entries ever flow through here, so O(n^2) is fine.
+    function sortEntries(entries as object) as object
+        sorted = []
+        for each entry in entries
+            inserted = false
+            for i = 0 to sorted.count() - 1
+                if ranksBefore(entry, sorted[i])
+                    insertAt(sorted, i, entry)
+                    inserted = true
+                    exit for
+                end if
+            end for
+            if not inserted then sorted.push(entry)
+        end for
+        return sorted
+    end function
+
+    function ranksBefore(a as object, b as object) as boolean
+        if a.score <> b.score then return a.score > b.score
+        return dateKey(a.date) < dateKey(b.date)
+    end function
+
+    function capEntries(entries as object) as object
+        capped = []
+        for i = 0 to entries.count() - 1
+            if i >= maxEntries() then exit for
+            capped.push(entries[i])
+        end for
+        return capped
+    end function
+
+    function serialize(leaderboardState as object) as string
+        return formatJson(leaderboardState)
+    end function
+
+    ' Parses serialized state, skipping malformed entries. Any invalid
+    ' payload degrades to an empty leaderboard instead of crashing.
+    function deserialize(jsonText as string) as object
+        parsed = parseJson(jsonText)
+        if parsed = invalid or getInterface(parsed, "ifAssociativeArray") = invalid then return create()
+        if parsed.entries = invalid or getInterface(parsed.entries, "ifArray") = invalid then return create()
+        entries = []
+        for each entry in parsed.entries
+            if isValidEntry(entry)
+                entries.push({ nickname: entry.nickname, score: int(entry.score), date: entry.date })
+            end if
+        end for
+        return { entries: capEntries(sortEntries(entries)) }
+    end function
+
+    function isValidEntry(entry as dynamic) as boolean
+        if entry = invalid or getInterface(entry, "ifAssociativeArray") = invalid then return false
+        if getInterface(entry.nickname, "ifString") = invalid then return false
+        if not isNumber(entry.score) then return false
+        if getInterface(entry.date, "ifString") = invalid then return false
+        return true
+    end function
+
+    function isNumber(value as dynamic) as boolean
+        if value = invalid then return false
+        if getInterface(value, "ifInt") <> invalid then return true
+        if getInterface(value, "ifFloat") <> invalid then return true
+        if getInterface(value, "ifDouble") <> invalid then return true
+        return false
+    end function
+
+    function cloneEntry(entry as object) as object
+        return { nickname: entry.nickname, score: entry.score, date: entry.date }
+    end function
+
+    sub insertAt(entries as object, index as integer, entry as object)
+        entries.push(invalid)
+        for i = entries.count() - 1 to index + 1 step -1
+            entries[i] = entries[i - 1]
+        end for
+        entries[index] = entry
+    end sub
+
+    function pad2(value as integer) as string
+        if value < 10 then return "0" + value.toStr()
+        return value.toStr()
+    end function
+
+end namespace

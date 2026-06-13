@@ -1,0 +1,27 @@
+{
+  "name": "brickrain",
+  "version": "1.0.0",
+  "description": "Open-source falling-blocks game for Roku TV, written in BrighterScript with a pure, fully unit-tested logic core.",
+  "private": true,
+  "scripts": {
+    "build": "bsc --project bsconfig.json",
+    "lint": "bslint --project bsconfig.lint.json",
+    "test": "npm run test:logic",
+    "test:logic": "node scripts/run-headless-tests.js",
+    "test:device": "node scripts/run-device-tests.js",
+    "deploy": "npm run build && node scripts/deploy.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HectorIFC/BrickRain.git"
+  },
+  "author": "Hector Cardoso",
+  "license": "MIT",
+  "devDependencies": {
+    "@rokucommunity/bslint": "0.8.44",
+    "brighterscript": "0.72.5",
+    "brs-node": "2.2.0",
+    "roku-deploy": "3.17.6",
+    "rooibos-roku": "5.16.4"
+  }
+}

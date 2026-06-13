@@ -1,0 +1,8 @@
+' Entry point for the Rooibos device/simulator test build (bsconfig.test.json).
+' Kept separate from the channel entry point (source/main.bs) so the two never
+' collide: the test build excludes the channel main and ships only this one,
+' whose sole job is to hand control to the Rooibos runner. Rooibos then loads
+' the auto-generated RooibosScene, runs every @suite and reports results.
+sub main()
+    rooibos_init("RooibosScene")
+end sub

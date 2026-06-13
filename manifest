@@ -1,0 +1,18 @@
+title=BrickRain
+major_version=1
+minor_version=0
+build_version=1
+
+## Channel icons (focus artwork shown in the Roku home screen grid)
+mm_icon_focus_fhd=pkg:/assets/images/icon_focus_fhd.png
+mm_icon_focus_hd=pkg:/assets/images/icon_focus_hd.png
+mm_icon_focus_sd=pkg:/assets/images/icon_focus_sd.png
+
+## Splash screens
+splash_screen_fhd=pkg:/assets/images/splash_fhd.png
+splash_screen_hd=pkg:/assets/images/splash_hd.png
+splash_screen_sd=pkg:/assets/images/splash_sd.png
+splash_color=#080a22
+
+## UI designed at 1920x1080, autoscaled by the OS on HD/SD devices
+ui_resolutions=fhd

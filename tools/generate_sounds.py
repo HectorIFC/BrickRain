@@ -1,0 +1,105 @@
+"""Generates all BrickRain sound effects as 16-bit PCM WAV files.
+
+Chiptune-style synthesis (square/sine waves + envelopes), fully original,
+no copyright concerns. Output is Roku-compatible (roAudioResource).
+"""
+
+import wave
+from pathlib import Path
+
+import numpy as np
+
+SAMPLE_RATE = 44100
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "assets" / "sounds"
+
+
+def square_wave(frequency: float, duration: float, duty: float = 0.5) -> np.ndarray:
+    t = np.linspace(0, duration, int(SAMPLE_RATE * duration), endpoint=False)
+    return np.where((t * frequency) % 1 < duty, 1.0, -1.0)
+
+
+def sine_wave(frequency: float, duration: float) -> np.ndarray:
+    t = np.linspace(0, duration, int(SAMPLE_RATE * duration), endpoint=False)
+    return np.sin(2 * np.pi * frequency * t)
+
+
+def noise(duration: float) -> np.ndarray:
+    rng = np.random.default_rng(42)
+    return rng.uniform(-1, 1, int(SAMPLE_RATE * duration))
+
+
+def decay_envelope(samples: np.ndarray, strength: float = 5.0) -> np.ndarray:
+    t = np.linspace(0, 1, len(samples))
+    return samples * np.exp(-strength * t)
+
+
+def sweep(start_hz: float, end_hz: float, duration: float) -> np.ndarray:
+    t = np.linspace(0, duration, int(SAMPLE_RATE * duration), endpoint=False)
+    frequency = np.linspace(start_hz, end_hz, len(t))
+    phase = 2 * np.pi * np.cumsum(frequency) / SAMPLE_RATE
+    return np.sin(phase)
+
+
+def sequence(*parts: np.ndarray) -> np.ndarray:
+    return np.concatenate(parts)
+
+
+def write_wav(name: str, samples: np.ndarray, volume: float = 0.6) -> None:
+    normalized = samples / (np.max(np.abs(samples)) or 1)
+    pcm = (normalized * volume * 32767).astype(np.int16)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(OUTPUT_DIR / f"{name}.wav"), "w") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(SAMPLE_RATE)
+        f.writeframes(pcm.tobytes())
+    print(f"  {name}.wav")
+
+
+def note(frequency: float, duration: float, strength: float = 8.0) -> np.ndarray:
+    return decay_envelope(square_wave(frequency, duration, duty=0.25), strength)
+
+
+print("Generating BrickRain sounds:")
+
+# 1. move: short low blip (left/right/soft drop)
+write_wav("move", note(220, 0.05, strength=12))
+
+# 2. rotate: quick two-tone chirp
+write_wav("rotate", sequence(note(440, 0.04), note(587, 0.05)))
+
+# 3. hard_drop: whoosh down + impact
+write_wav("hard_drop", sequence(
+    decay_envelope(sweep(700, 120, 0.10), 3),
+    decay_envelope(sine_wave(80, 0.10) + 0.3 * noise(0.10), 8),
+))
+
+# 4. lock: dry low thud (piece settles, no line)
+write_wav("lock", decay_envelope(sine_wave(98, 0.12) + 0.15 * noise(0.12), 9))
+
+# 5. line_clear: ascending arpeggio C5-E5-G5-C6
+write_wav("line_clear", sequence(
+    note(523, 0.07), note(659, 0.07), note(784, 0.07), note(1047, 0.12, 5),
+))
+
+# 6. level_up: rising sweep with sparkle
+write_wav("level_up", sequence(
+    decay_envelope(sweep(330, 990, 0.22), 2),
+    note(1319, 0.10, 5),
+))
+
+# 7. game_over: slow descending minor walk
+write_wav("game_over", sequence(
+    note(392, 0.16, 4), note(330, 0.16, 4), note(262, 0.16, 4), note(196, 0.30, 3),
+))
+
+# 8. new_record: victory fanfare (the "win" sound)
+write_wav("new_record", sequence(
+    note(523, 0.09), note(659, 0.09), note(784, 0.09),
+    note(1047, 0.09), note(784, 0.07), note(1047, 0.35, 3),
+))
+
+# 9. menu_select: crisp UI click
+write_wav("menu_select", note(880, 0.04, strength=15))
+
+print("Done.")

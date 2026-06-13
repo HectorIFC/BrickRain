@@ -1,0 +1,379 @@
+import "pkg:/source/logic/game.bs"
+import "pkg:/source/tests/support/assert.bs"
+
+' Integration tests for source/logic/game.bs: the full state machine wiring
+' board + piece + bag + score, driven by scripted inputs and injected time.
+namespace tests.gameCases
+
+    function runAll() as object
+        return [
+            { name: "game: creates with a spawned piece and a 3-piece preview", collector: caseCreate() }
+            { name: "game: gravity pulls the piece down on level-1 cadence", collector: caseGravity() }
+            { name: "game: horizontal movement stops at the walls", collector: caseShift() }
+            { name: "game: soft drop moves down and scores 1 per cell", collector: caseSoftDrop() }
+            { name: "game: hard drop locks instantly and scores 2 per cell", collector: caseHardDrop() }
+            { name: "game: SRS wall kick rotates a piece off the wall", collector: caseSrsWallKick() }
+            { name: "game: lock delay holds for 500 ms after grounding", collector: caseLockDelay() }
+            { name: "game: lock delay resets are capped at 15", collector: caseLockResetCap() }
+            { name: "game: quad clear plus level-up in one flow", collector: caseQuadClearLevelUp() }
+            { name: "game: blocked spawn ends the game", collector: caseGameOver() }
+            { name: "game: pause and resume preserve the whole state", collector: casePauseResume() }
+            { name: "game: hold stashes once per piece and swaps back", collector: caseHold() }
+            { name: "game: ghost piece projects the hard-drop landing", collector: caseGhost() }
+            { name: "game: preview queue matches the pieces actually dealt", collector: caseNextQueueChain() }
+            { name: "game: seeded full game reproduces the exact final score", collector: caseSeededFullGame() }
+        ]
+    end function
+
+    ' --- helpers ---
+
+    function filledCellCount(boardState as object) as integer
+        total = 0
+        for each value in boardState.grid
+            if value <> 0 then total = total + 1
+        end for
+        return total
+    end function
+
+    ' Builds a playing state with a known active piece on an empty board.
+    function stateWithPiece(pieceType as string, x as integer, y as integer) as object
+        s = brickrain.game.create(1)
+        s.active = { pieceType: pieceType, rotation: 0, x: x, y: y }
+        return s
+    end function
+
+    ' Deterministic scripted game: a tiny greedy bot drives every piece, in
+    ' spawn orientation, to the column that minimizes holes and stack height
+    ' (favoring clears). It clears lines along the way but cannot rotate, so
+    ' S/Z hole buildup eventually tops the game out — a full playthrough.
+    function playScriptedGame(seed as integer) as object
+        s = brickrain.game.create(seed)
+        pieces = 0
+        while s.status = "playing" and pieces < 400
+            pieces = pieces + 1
+            targetX = chooseColumn(s)
+            shifts = targetX - s.active.x
+            for i = 1 to abs(shifts)
+                if shifts < 0
+                    s = brickrain.game.moveLeft(s)
+                else
+                    s = brickrain.game.moveRight(s)
+                end if
+            end for
+            s = brickrain.game.hardDrop(s)
+        end while
+        return { state: s, pieces: pieces }
+    end function
+
+    function chooseColumn(s as object) as integer
+        bestCost = 999999
+        bestX = s.active.x
+        for x = -2 to s.board.width - 1
+            cost = placementCost(s, x)
+            if cost < bestCost
+                bestCost = cost
+                bestX = x
+            end if
+        end for
+        return bestX
+    end function
+
+    ' Cost of hard-dropping the active piece (spawn rotation) at column x:
+    ' simulates the landing on a copy of the board via the pure board API.
+    function placementCost(s as object, x as integer) as integer
+        shape = brickrain.piece.cellsFor(s.active.pieceType, 0)
+        dy = 0
+        while true
+            cells = []
+            for each cell in shape
+                cells.push({ x: x + cell.x, y: dy + 1 + cell.y })
+            end for
+            if not brickrain.board.canPlace(s.board, cells) then exit while
+            dy = dy + 1
+        end while
+        landed = []
+        for each cell in shape
+            landed.push({ x: x + cell.x, y: dy + cell.y })
+        end for
+        if not brickrain.board.canPlace(s.board, landed) then return 999999
+        b = brickrain.board.withCells(s.board, landed, 1)
+        cleared = brickrain.board.fullRows(b)
+        b = brickrain.board.clearRows(b, cleared)
+        holes = 0
+        heights = 0
+        for each column in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+            covered = false
+            for y = 0 to b.height - 1
+                if brickrain.board.cellAt(b, column, y) <> 0
+                    if not covered
+                        covered = true
+                        heights = heights + (b.height - y)
+                    end if
+                else if covered
+                    holes = holes + 1
+                end if
+            end for
+        end for
+        return holes * 40 + heights - cleared.count() * 500
+    end function
+
+    ' --- cases ---
+
+    function caseCreate() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(1)
+        tests.assert.equal(c, s.status, "playing", "game starts playing")
+        tests.assert.isTrue(c, s.active <> invalid, "a piece is spawned")
+        tests.assert.equal(c, s.active.y, 0, "piece spawns at the top")
+        tests.assert.equal(c, s.score.score, 0, "score starts at 0")
+        tests.assert.equal(c, brickrain.game.nextTypes(s).count(), 3, "preview shows 3 pieces")
+        tests.assert.equal(c, filledCellCount(s.board), 0, "board starts empty")
+        return c
+    end function
+
+    function caseGravity() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(1)
+        s = brickrain.game.advance(s, 999)
+        tests.assert.equal(c, s.active.y, 0, "999 ms is not enough at level 1")
+        s = brickrain.game.advance(s, 1)
+        tests.assert.equal(c, s.active.y, 1, "piece falls after 1000 ms accumulated")
+        s = brickrain.game.advance(s, 3000)
+        tests.assert.equal(c, s.active.y, 4, "large deltas apply multiple gravity steps")
+        return c
+    end function
+
+    function caseShift() as object
+        c = tests.assert.newCollector()
+        s = stateWithPiece("T", 3, 5)
+        moved = brickrain.game.moveLeft(s)
+        tests.assert.equal(c, moved.active.x, 2, "left shift moves one column")
+        tests.assert.hasEvent(c, moved.events, "move", "successful shift emits move")
+        for i = 1 to 10
+            moved = brickrain.game.moveLeft(moved)
+        end for
+        tests.assert.equal(c, moved.active.x, 0, "T stops with its leftmost cell at the wall")
+        blocked = brickrain.game.moveLeft(moved)
+        tests.assert.equal(c, blocked.events.count(), 0, "blocked shift emits nothing")
+        for i = 1 to 20
+            moved = brickrain.game.moveRight(moved)
+        end for
+        tests.assert.equal(c, moved.active.x, 7, "T stops with its rightmost cell at the wall")
+        return c
+    end function
+
+    function caseSoftDrop() as object
+        c = tests.assert.newCollector()
+        s = stateWithPiece("T", 3, 5)
+        dropped = brickrain.game.softDrop(s)
+        tests.assert.equal(c, dropped.active.y, 6, "soft drop moves one row down")
+        tests.assert.equal(c, dropped.score.score, 1, "soft drop scores 1 per cell")
+        tests.assert.hasEvent(c, dropped.events, "move", "soft drop emits move")
+        return c
+    end function
+
+    function caseHardDrop() as object
+        c = tests.assert.newCollector()
+        s = stateWithPiece("T", 3, 0)
+        ghost = brickrain.game.ghostCells(s)
+        startCells = brickrain.game.activeCells(s)
+        distance = ghost[0].y - startCells[0].y
+        dropped = brickrain.game.hardDrop(s)
+        tests.assert.equal(c, dropped.score.score, distance * 2, "hard drop scores 2 per cell")
+        tests.assert.hasEvent(c, dropped.events, "hardDrop", "hard drop event emitted")
+        tests.assert.hasEvent(c, dropped.events, "lock", "piece locked without clearing")
+        tests.assert.equal(c, filledCellCount(dropped.board), 4, "piece written to the board")
+        for each cell in ghost
+            tests.assert.isTrue(c, brickrain.board.cellAt(dropped.board, cell.x, cell.y) <> 0, "landed on the ghost projection")
+        end for
+        tests.assert.equal(c, dropped.active.y, 0, "next piece spawned at the top")
+        return c
+    end function
+
+    function caseSrsWallKick() as object
+        c = tests.assert.newCollector()
+        s = stateWithPiece("T", 3, 5)
+        s = brickrain.game.rotateCw(s)
+        tests.assert.equal(c, s.active.rotation, 1, "free rotation succeeds in place")
+        for i = 1 to 10
+            s = brickrain.game.moveLeft(s)
+        end for
+        tests.assert.equal(c, s.active.x, -1, "state-1 T hugs the left wall at x=-1")
+        kicked = brickrain.game.rotateCw(s)
+        tests.assert.equal(c, kicked.active.rotation, 2, "rotation against the wall succeeds")
+        tests.assert.equal(c, kicked.active.x, 0, "wall kick pushed the piece right")
+        tests.assert.hasEvent(c, kicked.events, "rotate", "kick still emits rotate")
+        return c
+    end function
+
+    function caseLockDelay() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(1)
+        s = brickrain.game.advance(s, 25000)
+        tests.assert.equal(c, filledCellCount(s.board), 0, "grounded piece does not lock instantly")
+        s = brickrain.game.advance(s, 499)
+        tests.assert.equal(c, filledCellCount(s.board), 0, "still floating at 499 ms")
+        s = brickrain.game.advance(s, 1)
+        tests.assert.equal(c, filledCellCount(s.board), 4, "locks when the 500 ms delay expires")
+        tests.assert.equal(c, s.active.y, 0, "next piece spawned")
+        return c
+    end function
+
+    function caseLockResetCap() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(1)
+        s = brickrain.game.advance(s, 25000)
+        ' 15 successful moves, each resetting the lock timer before it expires.
+        for i = 1 to 15
+            if i mod 2 = 1
+                s = brickrain.game.moveLeft(s)
+            else
+                s = brickrain.game.moveRight(s)
+            end if
+            s = brickrain.game.advance(s, 400)
+            tests.assert.equal(c, filledCellCount(s.board), 0, "reset " + i.toStr() + " keeps the piece alive")
+        end for
+        tests.assert.equal(c, s.lockResets, 15, "reset budget exhausted")
+        ' The 16th move succeeds but no longer resets the timer.
+        s = brickrain.game.moveRight(s)
+        s = brickrain.game.advance(s, 400)
+        tests.assert.equal(c, filledCellCount(s.board), 4, "piece locks once resets are capped")
+        return c
+    end function
+
+    function caseQuadClearLevelUp() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(1)
+        ' Stack: bottom 4 rows filled except the rightmost column.
+        boardState = s.board
+        for y = 18 to 21
+            cells = []
+            for x = 0 to 8
+                cells.push({ x: x, y: y })
+            end for
+            boardState = brickrain.board.withCells(boardState, cells, 1)
+        end for
+        s.board = boardState
+        s.score = { score: 0, lines: 6, level: 1 }
+        s.active = { pieceType: "I", rotation: 0, x: 3, y: 0 }
+        ' Vertical I into the right column: rotate, slide right, hard drop.
+        s = brickrain.game.rotateCw(s)
+        for i = 1 to 4
+            s = brickrain.game.moveRight(s)
+        end for
+        s = brickrain.game.hardDrop(s)
+        tests.assert.hasEvent(c, s.events, "lineClear", "quad clear detected")
+        tests.assert.hasEvent(c, s.events, "levelUp", "level-up emitted in the same flow")
+        tests.assert.equal(c, s.score.lines, 10, "6 + 4 cleared lines")
+        tests.assert.equal(c, s.score.level, 2, "level 2 reached exactly at 10 lines")
+        ' 18 cells of hard drop (x2) + quad at level 1 (800).
+        tests.assert.equal(c, s.score.score, 836, "score = 36 drop + 800 quad")
+        tests.assert.equal(c, filledCellCount(s.board), 0, "stack fully cleared")
+        return c
+    end function
+
+    function caseGameOver() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(2)
+        lastEvents = []
+        for i = 1 to 100
+            if s.status <> "playing" then exit for
+            s = brickrain.game.hardDrop(s)
+            lastEvents = s.events
+        end for
+        tests.assert.equal(c, s.status, "gameOver", "stacking without clearing tops out")
+        tests.assert.isTrue(c, s.active = invalid, "no active piece after game over")
+        tests.assert.hasEvent(c, lastEvents, "gameOver", "game over event emitted")
+        ' Inputs are ignored after the game ends.
+        after = brickrain.game.hardDrop(s)
+        tests.assert.equal(c, after.status, "gameOver", "hard drop ignored after game over")
+        tests.assert.equal(c, after.events.count(), 0, "no events after game over")
+        return c
+    end function
+
+    function casePauseResume() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(1)
+        s = brickrain.game.advance(s, 2000)
+        yBefore = s.active.y
+        scoreBefore = s.score.score
+        paused = brickrain.game.pause(s)
+        tests.assert.equal(c, paused.status, "paused", "pause switches status")
+        tests.assert.hasEvent(c, paused.events, "pause", "pause event emitted")
+        paused = brickrain.game.advance(paused, 10000)
+        tests.assert.equal(c, paused.active.y, yBefore, "time stands still while paused")
+        paused = brickrain.game.moveLeft(paused)
+        tests.assert.equal(c, paused.active.x, s.active.x, "input ignored while paused")
+        resumed = brickrain.game.resume(paused)
+        tests.assert.equal(c, resumed.status, "playing", "resume restores play")
+        tests.assert.equal(c, resumed.active.y, yBefore, "piece position preserved")
+        tests.assert.equal(c, resumed.score.score, scoreBefore, "score preserved")
+        return c
+    end function
+
+    function caseHold() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(9)
+        firstType = s.active.pieceType
+        expectedIncoming = brickrain.game.nextTypes(s, 1)[0]
+        held = brickrain.game.holdSwap(s)
+        tests.assert.equal(c, held.hold, firstType, "active piece stashed")
+        tests.assert.equal(c, held.active.pieceType, expectedIncoming, "next piece took its place")
+        tests.assert.isFalse(c, held.canHold, "hold consumed for this piece")
+        tests.assert.hasEvent(c, held.events, "hold", "hold event emitted")
+        again = brickrain.game.holdSwap(held)
+        tests.assert.equal(c, again.active.pieceType, expectedIncoming, "second hold is a no-op")
+        tests.assert.equal(c, again.events.count(), 0, "no event for the refused hold")
+        ' Locking re-arms hold, and swapping returns the stashed piece.
+        locked = brickrain.game.hardDrop(held)
+        tests.assert.isTrue(c, locked.canHold, "hold available again after lock")
+        swapped = brickrain.game.holdSwap(locked)
+        tests.assert.equal(c, swapped.active.pieceType, firstType, "stashed piece comes back")
+        return c
+    end function
+
+    function caseGhost() as object
+        c = tests.assert.newCollector()
+        s = stateWithPiece("L", 3, 2)
+        ghost = brickrain.game.ghostCells(s)
+        tests.assert.equal(c, ghost.count(), 4, "ghost has 4 cells")
+        tests.assert.isTrue(c, brickrain.board.canPlace(s.board, ghost), "ghost rests on a free spot")
+        below = []
+        for each cell in ghost
+            below.push({ x: cell.x, y: cell.y + 1 })
+        end for
+        tests.assert.isFalse(c, brickrain.board.canPlace(s.board, below), "ghost cannot fall further")
+        active = brickrain.game.activeCells(s)
+        for i = 0 to 3
+            tests.assert.equal(c, ghost[i].x, active[i].x, "ghost keeps the piece columns")
+        end for
+        return c
+    end function
+
+    function caseNextQueueChain() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(3)
+        expected = brickrain.game.nextTypes(s, 3)
+        for i = 0 to 2
+            s = brickrain.game.hardDrop(s)
+            tests.assert.equal(c, s.active.pieceType, expected[i], "drop " + (i + 1).toStr() + " spawns preview piece " + (i + 1).toStr())
+        end for
+        return c
+    end function
+
+    function caseSeededFullGame() as object
+        c = tests.assert.newCollector()
+        first = playScriptedGame(23)
+        second = playScriptedGame(23)
+        tests.assert.equal(c, first.state.status, "gameOver", "scripted game reaches game over")
+        tests.assert.equal(c, second.state.score.score, first.state.score.score, "same seed, same final score")
+        tests.assert.equal(c, second.state.score.lines, first.state.score.lines, "same seed, same line count")
+        tests.assert.equal(c, second.pieces, first.pieces, "same seed, same piece count")
+        ' Golden values pin the exact outcome of seed 23 with this bot.
+        tests.assert.equal(c, first.state.score.score, 1538, "golden final score")
+        tests.assert.equal(c, first.state.score.lines, 5, "golden line count")
+        tests.assert.equal(c, first.pieces, 38, "golden piece count")
+        return c
+    end function
+
+end namespace

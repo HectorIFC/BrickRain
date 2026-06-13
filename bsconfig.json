@@ -1,0 +1,18 @@
+{
+  "rootDir": ".",
+  "files": [
+    "manifest",
+    "source/**/*",
+    "components/**/*",
+    "assets/**/*"
+  ],
+  "outFile": "out/brickrain.zip",
+  "createPackage": true,
+  "autoImportComponentScript": true,
+  "retainStagingDir": true,
+  "stagingDir": "out/staging",
+  "sourceMap": false,
+  "plugins": [
+    "@rokucommunity/bslint"
+  ]
+}

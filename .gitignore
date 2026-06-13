@@ -1,0 +1,43 @@
+# --- Dependencies ---
+node_modules/
+
+# --- Build output ---
+out/
+dist/
+build/
+.roku-deploy-staging/
+staging/
+
+# --- Secrets & Roku signing (never commit) ---
+.env
+.env.local
+*.pkg
+*.key
+*.pem
+
+# --- Test & coverage output ---
+coverage/
+.nyc_output/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Editors & IDEs ---
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# --- Python (asset generator tools) ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/

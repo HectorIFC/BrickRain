@@ -1,0 +1,55 @@
+' Scoring, line counting, leveling and gravity speed rules.
+' Pure module: every mutation returns a new score AA.
+namespace brickrain.score
+
+    function create() as object
+        return { score: 0, lines: 0, level: 1 }
+    end function
+
+    ' Points awarded for clearing `clearedCount` lines at the given level.
+    function linePoints(clearedCount as integer, level as integer) as integer
+        if clearedCount = 1 then return 100 * level
+        if clearedCount = 2 then return 300 * level
+        if clearedCount = 3 then return 500 * level
+        if clearedCount >= 4 then return 800 * level
+        return 0
+    end function
+
+    ' Level derived from total cleared lines: level up every 10 lines.
+    function levelForLines(lines as integer) as integer
+        return 1 + lines \ 10
+    end function
+
+    ' Gravity interval in ms for a level: max(80, 1000 - (level - 1) * 90).
+    function gravityMs(level as integer) as integer
+        interval = 1000 - (level - 1) * 90
+        if interval < 80 then interval = 80
+        return interval
+    end function
+
+    ' Applies a line clear. Returns { score, leveledUp }: the new score state
+    ' and whether the clear crossed a level boundary.
+    function applyClear(scoreState as object, clearedCount as integer) as object
+        points = linePoints(clearedCount, scoreState.level)
+        lines = scoreState.lines + clearedCount
+        newLevel = levelForLines(lines)
+        return {
+            score: {
+                score: scoreState.score + points,
+                lines: lines,
+                level: newLevel
+            },
+            leveledUp: newLevel > scoreState.level
+        }
+    end function
+
+    ' Drop bonus: +1 per cell for soft drop, +2 per cell for hard drop.
+    function addDropPoints(scoreState as object, cellsDropped as integer, perCell as integer) as object
+        return {
+            score: scoreState.score + cellsDropped * perCell,
+            lines: scoreState.lines,
+            level: scoreState.level
+        }
+    end function
+
+end namespace

@@ -1,0 +1,118 @@
+import "pkg:/source/logic/leaderboard.bs"
+import "pkg:/source/tests/support/assert.bs"
+
+' Unit tests for source/logic/leaderboard.bs (identity, ranking, persistence).
+namespace tests.leaderboardCases
+
+    function runAll() as object
+        return [
+            { name: "leaderboard: nickname validation rules", collector: caseNicknameValidation() }
+            { name: "leaderboard: date formatting is dd/mm/yyyy", collector: caseDateFormat() }
+            { name: "leaderboard: upsert keeps the best score per nickname", collector: caseUpsertBest() }
+            { name: "leaderboard: ranking sorts by score then earliest date", collector: caseRanking() }
+            { name: "leaderboard: capacity is capped at 50 entries", collector: caseCap() }
+            { name: "leaderboard: JSON round trip preserves entries", collector: caseRoundTrip() }
+            { name: "leaderboard: malformed JSON degrades to empty", collector: caseBadJson() }
+        ]
+    end function
+
+    function caseNicknameValidation() as object
+        c = tests.assert.newCollector()
+        ok = brickrain.leaderboard.validateNickname("  Hector7  ")
+        tests.assert.isTrue(c, ok.valid, "alphanumeric nickname is valid")
+        tests.assert.equal(c, ok.value, "Hector7", "nickname is trimmed")
+        tests.assert.isFalse(c, brickrain.leaderboard.validateNickname("a").valid, "1 char is too short")
+        tests.assert.isTrue(c, brickrain.leaderboard.validateNickname("ab").valid, "2 chars is the minimum")
+        tests.assert.isTrue(c, brickrain.leaderboard.validateNickname("abcdefghijkl").valid, "12 chars is the maximum")
+        tests.assert.isFalse(c, brickrain.leaderboard.validateNickname("abcdefghijklm").valid, "13 chars is too long")
+        tests.assert.isFalse(c, brickrain.leaderboard.validateNickname("hec tor").valid, "spaces are rejected")
+        tests.assert.isFalse(c, brickrain.leaderboard.validateNickname("hector!").valid, "symbols are rejected")
+        tests.assert.isFalse(c, brickrain.leaderboard.validateNickname("    ").valid, "blank input is rejected")
+        return c
+    end function
+
+    function caseDateFormat() as object
+        c = tests.assert.newCollector()
+        tests.assert.equal(c, brickrain.leaderboard.formatDate(5, 3, 2026), "05/03/2026", "single digits are zero padded")
+        tests.assert.equal(c, brickrain.leaderboard.formatDate(25, 12, 2026), "25/12/2026", "double digits unchanged")
+        tests.assert.equal(c, brickrain.leaderboard.dateKey("05/03/2026"), 20260305, "date key is yyyymmdd")
+        tests.assert.isTrue(c, brickrain.leaderboard.dateKey("31/12/2025") < brickrain.leaderboard.dateKey("01/01/2026"), "keys order across years")
+        return c
+    end function
+
+    function caseUpsertBest() as object
+        c = tests.assert.newCollector()
+        lb = brickrain.leaderboard.create()
+        lb = brickrain.leaderboard.upsert(lb, "Hector", 100, "01/06/2026")
+        tests.assert.equal(c, lb.entries.count(), 1, "first entry inserted")
+        ' A lower score for the same player (case-insensitive) never downgrades.
+        lb = brickrain.leaderboard.upsert(lb, "HECTOR", 50, "02/06/2026")
+        tests.assert.equal(c, lb.entries.count(), 1, "no duplicate for different casing")
+        tests.assert.equal(c, lb.entries[0].score, 100, "lower score kept the best")
+        tests.assert.equal(c, lb.entries[0].nickname, "Hector", "original casing preserved")
+        tests.assert.equal(c, lb.entries[0].date, "01/06/2026", "original date preserved")
+        ' An equal score is not an improvement either.
+        lb = brickrain.leaderboard.upsert(lb, "hector", 100, "03/06/2026")
+        tests.assert.equal(c, lb.entries[0].date, "01/06/2026", "equal score keeps the earlier record")
+        ' A higher score updates score, date and casing.
+        lb = brickrain.leaderboard.upsert(lb, "hector", 250, "04/06/2026")
+        tests.assert.equal(c, lb.entries[0].score, 250, "higher score replaces the best")
+        tests.assert.equal(c, lb.entries[0].date, "04/06/2026", "date follows the new best")
+        tests.assert.equal(c, lb.entries[0].nickname, "hector", "casing follows the new best")
+        tests.assert.equal(c, brickrain.leaderboard.bestScoreFor(lb, "HeCtOr"), 250, "lookup is case-insensitive")
+        tests.assert.equal(c, brickrain.leaderboard.bestScoreFor(lb, "nobody"), -1, "missing nickname yields -1")
+        return c
+    end function
+
+    function caseRanking() as object
+        c = tests.assert.newCollector()
+        lb = brickrain.leaderboard.create()
+        lb = brickrain.leaderboard.upsert(lb, "Carol", 300, "05/06/2026")
+        lb = brickrain.leaderboard.upsert(lb, "Alice", 500, "06/06/2026")
+        lb = brickrain.leaderboard.upsert(lb, "Bob", 300, "01/06/2026")
+        tests.assert.equal(c, lb.entries[0].nickname, "Alice", "highest score first")
+        tests.assert.equal(c, lb.entries[1].nickname, "Bob", "tie broken by earliest date")
+        tests.assert.equal(c, lb.entries[2].nickname, "Carol", "later tie date ranks below")
+        return c
+    end function
+
+    function caseCap() as object
+        c = tests.assert.newCollector()
+        lb = brickrain.leaderboard.create()
+        for i = 1 to 55
+            lb = brickrain.leaderboard.upsert(lb, "player" + i.toStr(), i * 10, "01/06/2026")
+        end for
+        tests.assert.equal(c, lb.entries.count(), 50, "capped at 50 entries")
+        tests.assert.equal(c, lb.entries[0].score, 550, "best survives the cap")
+        tests.assert.equal(c, lb.entries[49].score, 60, "weakest kept is the 50th best")
+        tests.assert.equal(c, brickrain.leaderboard.bestScoreFor(lb, "player5"), -1, "scores below the cap are dropped")
+        return c
+    end function
+
+    function caseRoundTrip() as object
+        c = tests.assert.newCollector()
+        lb = brickrain.leaderboard.create()
+        lb = brickrain.leaderboard.upsert(lb, "Alice", 500, "06/06/2026")
+        lb = brickrain.leaderboard.upsert(lb, "Bob", 300, "01/06/2026")
+        json = brickrain.leaderboard.serialize(lb)
+        restored = brickrain.leaderboard.deserialize(json)
+        tests.assert.equal(c, restored.entries.count(), 2, "entry count survives")
+        tests.assert.equal(c, restored.entries[0].nickname, "Alice", "order survives")
+        tests.assert.equal(c, restored.entries[0].score, 500, "score survives")
+        tests.assert.equal(c, restored.entries[1].date, "01/06/2026", "date survives")
+        return c
+    end function
+
+    function caseBadJson() as object
+        c = tests.assert.newCollector()
+        tests.assert.equal(c, brickrain.leaderboard.deserialize("not json at all").entries.count(), 0, "garbage text yields empty")
+        tests.assert.equal(c, brickrain.leaderboard.deserialize("[1,2,3]").entries.count(), 0, "wrong shape yields empty")
+        tests.assert.equal(c, brickrain.leaderboard.deserialize("{}").entries.count(), 0, "missing entries yields empty")
+        mixed = "{""entries"": [{""nickname"": ""Ok"", ""score"": 10, ""date"": ""01/06/2026""}, {""nickname"": 5}, ""junk""]}"
+        restored = brickrain.leaderboard.deserialize(mixed)
+        tests.assert.equal(c, restored.entries.count(), 1, "malformed entries are skipped")
+        tests.assert.equal(c, restored.entries[0].nickname, "Ok", "valid entry survives")
+        return c
+    end function
+
+end namespace

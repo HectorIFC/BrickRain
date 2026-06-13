@@ -1,0 +1,37 @@
+{
+  "rootDir": ".",
+  "files": [
+    "manifest",
+    "source/logic/**/*",
+    {
+      "src": "tests/support/**/*",
+      "dest": "source/tests/support"
+    },
+    {
+      "src": "tests/cases/**/*",
+      "dest": "source/tests/cases"
+    },
+    {
+      "src": "tests/rooibos/**/*",
+      "dest": "source/tests/rooibos"
+    }
+  ],
+  "stagingDir": "out/test",
+  "createPackage": false,
+  "autoImportComponentScript": true,
+  "sourceMap": true,
+  "plugins": [
+    "rooibos-roku"
+  ],
+  "rooibos": {
+    "isRecordingCodeCoverage": true,
+    "coverageExcludedFiles": [
+      "**/tests/**/*"
+    ],
+    "printLcov": true,
+    "showOnlyFailures": true,
+    "catchCrashes": true,
+    "reporters": ["console"],
+    "testSceneName": "RooibosScene"
+  }
+}
