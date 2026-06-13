@@ -9,7 +9,8 @@
     <interface>
         <!-- Set by MainScene to (re)start a game for this player. -->
         <field id="playerNickname" type="string" onChange="onStartRequested" />
-        <field id="playerBest" type="integer" />
+        <!-- The leaderboard #1 score this game must beat to be a new record. -->
+        <field id="recordScore" type="integer" />
         <!-- Outputs observed by MainScene. -->
         <field id="gameResult" type="assocarray" />
         <field id="quitToDashboard" type="boolean" value="false" />

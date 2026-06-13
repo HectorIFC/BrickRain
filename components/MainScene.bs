@@ -50,27 +50,24 @@ sub onNicknameResult()
 end sub
 
 sub startGame(nickname as string)
-    best = brickrain.leaderboard.bestScoreFor(m.leaderboard, nickname)
-    if best < 0 then best = 0
     m.leaderboardScreen.visible = false
     m.gameScreen.visible = true
-    m.gameScreen.playerBest = best
+    ' The record to beat is the leaderboard's #1 score: only surpassing first
+    ' place counts as a new record (not merely beating one's own best).
+    m.gameScreen.recordScore = brickrain.leaderboard.topScore(m.leaderboard)
     ' Setting the nickname last triggers GameScreen to start the game.
     m.gameScreen.playerNickname = nickname
 end sub
 
 ' A finished game: record the result (never downgrades a better past score) and
-' refresh the player's best so a "play again" round compares against it.
+' refresh the record to beat so a "play again" round compares against it.
 sub onGameResult()
     result = m.gameScreen.gameResult
     if result = invalid or result.nickname = invalid then return
     m.leaderboard = brickrain.leaderboard.upsert(m.leaderboard, result.nickname, result.score, todayDate())
     brickrain.registry.saveLeaderboard(m.leaderboard)
     m.leaderboardScreen.entries = m.leaderboard.entries
-
-    refreshedBest = brickrain.leaderboard.bestScoreFor(m.leaderboard, result.nickname)
-    if refreshedBest < 0 then refreshedBest = 0
-    m.gameScreen.playerBest = refreshedBest
+    m.gameScreen.recordScore = brickrain.leaderboard.topScore(m.leaderboard)
 end sub
 
 sub onQuitToDashboard()

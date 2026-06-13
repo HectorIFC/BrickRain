@@ -1,5 +1,5 @@
-' Game-over controller. Renders the final score / best / record banner and maps
-' the chosen button to a `selection` string (again / dashboard) for GameScreen.
+' Game-over controller. Renders the final score / record / new-record banner and
+' maps the chosen button to a `selection` string (again / dashboard) for GameScreen.
 
 sub init()
     m.recordBanner = m.top.findNode("recordBanner")
@@ -14,7 +14,7 @@ end sub
 
 sub onValuesChange()
     m.scoreLabel.text = "Score: " + m.top.finalScore.toStr()
-    m.bestLabel.text = "Best: " + m.top.bestScore.toStr()
+    m.bestLabel.text = "Record: " + m.top.recordScore.toStr()
     m.recordBanner.visible = m.top.isNewRecord
 end sub
 

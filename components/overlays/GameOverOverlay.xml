@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-  Game-over screen: final score, the player's best, an optional "new record"
+  Game-over screen: final score, the leaderboard record, an optional "new record"
   banner, and the play-again / back-to-dashboard menu. GameScreen pushes the
   result values in and observes the resulting `selection`.
 -->
 <component name="GameOverOverlay" extends="Group">
     <interface>
         <field id="finalScore" type="integer" onChange="onValuesChange" />
-        <field id="bestScore" type="integer" onChange="onValuesChange" />
+        <field id="recordScore" type="integer" onChange="onValuesChange" />
         <field id="isNewRecord" type="boolean" onChange="onValuesChange" />
         <field id="selection" type="string" value="" />
     </interface>

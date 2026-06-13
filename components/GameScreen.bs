@@ -290,28 +290,34 @@ end sub
 sub onGameOver()
     m.tickTimer.control = "stop"
     m.heldKey = ""
-    isNewRecord = m.state.score.score > m.top.playerBest
 
-    ' Persist the result immediately so the dashboard reflects it on return.
-    m.top.gameResult = {
-        nickname: m.top.playerNickname,
-        score: m.state.score.score,
-        lines: m.state.score.lines,
-        isNewRecord: isNewRecord
-    }
+    finalScore = m.state.score.score
+    ' recordScore is the pre-game leaderboard #1; a new record means beating it.
+    recordToBeat = m.top.recordScore
+    isNewRecord = finalScore > recordToBeat
+    displayRecord = recordToBeat
+    if finalScore > displayRecord then displayRecord = finalScore
 
     if isNewRecord
         m.pendingRecord = true
         m.recordTimer.control = "start"
     end if
 
-    bestScore = m.top.playerBest
-    if m.state.score.score > bestScore then bestScore = m.state.score.score
-    m.gameOverOverlay.finalScore = m.state.score.score
-    m.gameOverOverlay.bestScore = bestScore
+    m.gameOverOverlay.finalScore = finalScore
+    m.gameOverOverlay.recordScore = displayRecord
     m.gameOverOverlay.isNewRecord = isNewRecord
     m.gameOverOverlay.visible = true
     m.gameOverOverlay.setFocus(true)
+
+    ' Set the result LAST: it synchronously drives MainScene.onGameResult, which
+    ' updates m.top.recordScore for the next round. Computing the overlay values
+    ' from locals first keeps them independent of that side effect.
+    m.top.gameResult = {
+        nickname: m.top.playerNickname,
+        score: finalScore,
+        lines: m.state.score.lines,
+        isNewRecord: isNewRecord
+    }
 end sub
 
 ' new_record.wav plays shortly after game_over.wav so the two do not overlap.

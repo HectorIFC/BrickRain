@@ -74,6 +74,14 @@ namespace brickrain.leaderboard
         return -1
     end function
 
+    ' The top (rank 1) score on the leaderboard, or 0 when it is empty. This is
+    ' the record to beat — entries are kept sorted by score descending, so the
+    ' first entry holds the highest score.
+    function topScore(leaderboardState as object) as integer
+        if leaderboardState.entries.count() = 0 then return 0
+        return leaderboardState.entries[0].score
+    end function
+
     ' Insertion sort: score descending, ties broken by earliest date.
     ' At most 50 + 1 entries ever flow through here, so O(n^2) is fine.
     function sortEntries(entries as object) as object

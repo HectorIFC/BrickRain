@@ -10,6 +10,7 @@ namespace tests.leaderboardCases
             { name: "leaderboard: date formatting is dd/mm/yyyy", collector: caseDateFormat() }
             { name: "leaderboard: upsert keeps the best score per nickname", collector: caseUpsertBest() }
             { name: "leaderboard: ranking sorts by score then earliest date", collector: caseRanking() }
+            { name: "leaderboard: topScore returns the rank-1 score", collector: caseTopScore() }
             { name: "leaderboard: capacity is capped at 50 entries", collector: caseCap() }
             { name: "leaderboard: JSON round trip preserves entries", collector: caseRoundTrip() }
             { name: "leaderboard: malformed JSON degrades to empty", collector: caseBadJson() }
@@ -73,6 +74,27 @@ namespace tests.leaderboardCases
         tests.assert.equal(c, lb.entries[0].nickname, "Alice", "highest score first")
         tests.assert.equal(c, lb.entries[1].nickname, "Bob", "tie broken by earliest date")
         tests.assert.equal(c, lb.entries[2].nickname, "Carol", "later tie date ranks below")
+        return c
+    end function
+
+    function caseTopScore() as object
+        c = tests.assert.newCollector()
+        empty = brickrain.leaderboard.create()
+        tests.assert.equal(c, brickrain.leaderboard.topScore(empty), 0, "empty leaderboard has top score 0")
+        lb = brickrain.leaderboard.upsert(empty, "Bob", 300, "01/06/2026")
+        tests.assert.equal(c, brickrain.leaderboard.topScore(lb), 300, "single entry is the top score")
+        lb = brickrain.leaderboard.upsert(lb, "Alice", 900, "02/06/2026")
+        tests.assert.equal(c, brickrain.leaderboard.topScore(lb), 900, "top score is the rank-1 score, not insertion order")
+        lb = brickrain.leaderboard.upsert(lb, "Carol", 500, "03/06/2026")
+        tests.assert.equal(c, brickrain.leaderboard.topScore(lb), 900, "a lower new entry does not change the top score")
+
+        ' Reproduces the reported bug: "new record" must compare against the
+        ' leaderboard #1, not a new player's (zero) personal best. With ABC at
+        ' 1169, a new player scoring 239 is NOT a record; 1200 is.
+        board = brickrain.leaderboard.upsert(brickrain.leaderboard.create(), "ABC", 1169, "13/06/2026")
+        record = brickrain.leaderboard.topScore(board)
+        tests.assert.isFalse(c, 239 > record, "a new player below the #1 score is not a new record")
+        tests.assert.isTrue(c, 1200 > record, "beating the #1 score is a new record")
         return c
     end function
 
