@@ -1,0 +1,94 @@
+' Presentation constants shared by the SceneGraph components: the tetromino
+' color palette (matching tools/generate_artwork.py) and the board geometry,
+' all expressed in the 1920x1080 design space (ui_resolutions=fhd autoscales).
+' This is pure data, kept out of source/logic so the logic core stays render
+' agnostic.
+namespace brickrain.theme
+
+    ' Cell colors indexed by piece type index: 0 = empty cell, 1..7 in the
+    ' canonical order I, O, T, S, Z, J, L.
+    function cellColors() as object
+        return [
+            "0x141228FF",
+            "0x00F0F0FF",
+            "0xF0F000FF",
+            "0xA000F0FF",
+            "0x00F000FF",
+            "0xF00000FF",
+            "0x3C78FFFF",
+            "0xF0A000FF"
+        ]
+    end function
+
+    function emptyCellColor() as string
+        return "0x141228FF"
+    end function
+
+    function ghostColor() as string
+        return "0xFFFFFF40"
+    end function
+
+    function gridLineColor() as string
+        return "0x242246FF"
+    end function
+
+    function backgroundColor() as string
+        return "0x080A22FF"
+    end function
+
+    function panelColor() as string
+        return "0x10122EFF"
+    end function
+
+    function textColor() as string
+        return "0xF5F5FAFF"
+    end function
+
+    function accentColor() as string
+        return "0x00F0F0FF"
+    end function
+
+    ' Board geometry in the 1920x1080 design space.
+    function cols() as integer
+        return 10
+    end function
+
+    function visibleRows() as integer
+        return 20
+    end function
+
+    function cellSize() as integer
+        return 46
+    end function
+
+    function cellGap() as integer
+        return 2
+    end function
+
+    function boardOriginX() as integer
+        return 360
+    end function
+
+    function boardOriginY() as integer
+        return 80
+    end function
+
+    ' Level-based well theme: the empty-cell and grid colors cycle through a
+    ' small palette as the player levels up, giving a visible mood shift without
+    ' changing the canonical piece colors (which carry piece identity). Piece
+    ' colors stay fixed; only the backdrop tints.
+    function boardThemeForLevel(level as integer) as object
+        themes = [
+            { empty: "0x141228FF", grid: "0x242246FF" },
+            { empty: "0x1A1030FF", grid: "0x322052FF" },
+            { empty: "0x0E1E26FF", grid: "0x1C3A46FF" },
+            { empty: "0x241018FF", grid: "0x44202EFF" },
+            { empty: "0x101F14FF", grid: "0x1E3A26FF" },
+            { empty: "0x201A0EFF", grid: "0x40341CFF" }
+        ]
+        index = (level - 1) mod themes.count()
+        if index < 0 then index = 0
+        return themes[index]
+    end function
+
+end namespace

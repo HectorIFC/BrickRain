@@ -1,0 +1,84 @@
+import "pkg:/source/logic/leaderboard.bs"
+import "pkg:/source/registryAdapter.bs"
+
+' Screen router and persistence owner. The leaderboard lives in the registry via
+' the adapter; this scene loads it on boot, feeds it to the dashboard, and records
+' each finished game as its own entry (one row per game, today's date).
+
+sub init()
+    m.leaderboardScreen = m.top.findNode("leaderboardScreen")
+    m.gameScreen = m.top.findNode("gameScreen")
+    m.nicknameDialog = m.top.findNode("nicknameDialog")
+
+    m.leaderboard = brickrain.registry.loadLeaderboard()
+
+    m.leaderboardScreen.observeField("startRequested", "onStartRequested")
+    m.nicknameDialog.observeField("result", "onNicknameResult")
+    m.gameScreen.observeField("gameResult", "onGameResult")
+    m.gameScreen.observeField("quitToDashboard", "onQuitToDashboard")
+
+    showDashboard()
+end sub
+
+sub showDashboard()
+    m.gameScreen.visible = false
+    m.leaderboardScreen.entries = m.leaderboard.entries
+    m.leaderboardScreen.visible = true
+    ' Bump focusRequest instead of focusing the screen group, so focus reliably
+    ' lands on the Start button even on first boot (when visible is already true).
+    m.leaderboardScreen.focusRequest = m.leaderboardScreen.focusRequest + 1
+end sub
+
+' Start pressed on the dashboard: open the keyboard dialog, prefilled with the
+' last nickname used on this device.
+sub onStartRequested()
+    if m.leaderboardScreen.startRequested = 0 then return
+    m.nicknameDialog.lastNickname = brickrain.registry.loadLastNickname()
+    m.nicknameDialog.show = true
+end sub
+
+sub onNicknameResult()
+    outcome = m.nicknameDialog.result
+    if outcome = invalid then return
+    if outcome.confirmed
+        brickrain.registry.saveLastNickname(outcome.nickname)
+        startGame(outcome.nickname)
+    else
+        ' Cancelled: hand focus back to the dashboard Start button.
+        m.leaderboardScreen.focusRequest = m.leaderboardScreen.focusRequest + 1
+    end if
+end sub
+
+sub startGame(nickname as string)
+    m.leaderboardScreen.visible = false
+    m.gameScreen.visible = true
+    ' The record to beat is the leaderboard's #1 score: only surpassing first
+    ' place counts as a new record (not merely beating one's own best).
+    m.gameScreen.recordScore = brickrain.leaderboard.topScore(m.leaderboard)
+    m.gameScreen.playerNickname = nickname
+    ' Bump the counter last: this always changes, so the game (re)starts fresh
+    ' even when the same nickname is reused (a string field would not re-fire).
+    m.gameScreen.startGameRequest = m.gameScreen.startGameRequest + 1
+end sub
+
+' A finished game: record this game as its own leaderboard entry and refresh the
+' record to beat so a "play again" round compares against it.
+sub onGameResult()
+    result = m.gameScreen.gameResult
+    if result = invalid or result.nickname = invalid then return
+    m.leaderboard = brickrain.leaderboard.addEntry(m.leaderboard, result.nickname, result.score, todayDate())
+    brickrain.registry.saveLeaderboard(m.leaderboard)
+    m.leaderboardScreen.entries = m.leaderboard.entries
+    m.gameScreen.recordScore = brickrain.leaderboard.topScore(m.leaderboard)
+end sub
+
+sub onQuitToDashboard()
+    if m.gameScreen.quitToDashboard then showDashboard()
+end sub
+
+' Today's local date formatted dd/mm/yyyy for leaderboard entries.
+function todayDate() as string
+    now = createObject("roDateTime")
+    now.toLocalTime()
+    return brickrain.leaderboard.formatDate(now.getDayOfMonth(), now.getMonth(), now.getYear())
+end function

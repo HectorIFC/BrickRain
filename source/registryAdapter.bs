@@ -1,0 +1,54 @@
+' Thin persistence adapter over roRegistrySection. This is the ONLY place that
+' touches the registry: the pure leaderboard logic (source/logic/leaderboard.bs)
+' does the serialization, and this wrapper just reads/writes the JSON string and
+' the last-used nickname, flushing after every write (registry survives app
+' restarts and TV reboots, and is wiped by the OS on channel uninstall).
+import "pkg:/source/logic/leaderboard.bs"
+
+namespace brickrain.registry
+
+    function sectionName() as string
+        return "BrickRain"
+    end function
+
+    function leaderboardKey() as string
+        return "leaderboard"
+    end function
+
+    function lastNicknameKey() as string
+        return "lastNickname"
+    end function
+
+    function section() as object
+        return createObject("roRegistrySection", sectionName())
+    end function
+
+    ' Loads the leaderboard, returning an empty one when nothing is stored yet
+    ' or the stored JSON is unreadable (deserialize degrades gracefully).
+    function loadLeaderboard() as object
+        reg = section()
+        if reg.exists(leaderboardKey())
+            return brickrain.leaderboard.deserialize(reg.read(leaderboardKey()))
+        end if
+        return brickrain.leaderboard.create()
+    end function
+
+    sub saveLeaderboard(leaderboardState as object)
+        reg = section()
+        reg.write(leaderboardKey(), brickrain.leaderboard.serialize(leaderboardState))
+        reg.flush()
+    end sub
+
+    function loadLastNickname() as string
+        reg = section()
+        if reg.exists(lastNicknameKey()) then return reg.read(lastNicknameKey())
+        return ""
+    end function
+
+    sub saveLastNickname(nickname as string)
+        reg = section()
+        reg.write(lastNicknameKey(), nickname)
+        reg.flush()
+    end sub
+
+end namespace

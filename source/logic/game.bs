@@ -1,0 +1,320 @@
+' Game state machine: spawn -> fall -> lock -> clear -> spawn / game over.
+' Pure module: time is injected via advance(deltaMs), input arrives as
+' function calls, results come back as a new state AA whose `events` array
+' tells the UI layer what happened (for sounds and rendering).
+'
+' Event kinds emitted: move, rotate, hardDrop, lock, lineClear, levelUp,
+' hold, pause, resume, gameOver.
+import "pkg:/source/logic/board.bs"
+import "pkg:/source/logic/piece.bs"
+import "pkg:/source/logic/bag.bs"
+import "pkg:/source/logic/score.bs"
+
+namespace brickrain.game
+
+    function lockDelayMs() as integer
+        return 500
+    end function
+
+    function maxLockResets() as integer
+        return 15
+    end function
+
+    function previewCount() as integer
+        return 3
+    end function
+
+    ' Creates a new game with the first piece already spawned.
+    ' Pass a positive seed for a fully deterministic game.
+    function create(seed = -1 as integer) as object
+        state = {
+            board: brickrain.board.create(),
+            bag: brickrain.bag.create(seed),
+            score: brickrain.score.create(),
+            active: invalid,
+            hold: "",
+            canHold: true,
+            status: "playing",
+            gravityAccumMs: 0,
+            lockTimerMs: 0,
+            lockResets: 0,
+            events: []
+        }
+        return spawnNext(state)
+    end function
+
+    ' Advances game time. Gravity pulls the piece down while airborne; once
+    ' grounded the 500 ms lock delay runs and finally locks the piece.
+    function advance(state as object, deltaMs as integer) as object
+        if state.status <> "playing" or state.active = invalid then return cloneState(state)
+        s = cloneState(state)
+        if isGrounded(s)
+            s.gravityAccumMs = 0
+            s.lockTimerMs = s.lockTimerMs + deltaMs
+            if s.lockTimerMs >= lockDelayMs() then s = lockActive(s)
+        else
+            s.lockTimerMs = 0
+            s.gravityAccumMs = s.gravityAccumMs + deltaMs
+            interval = brickrain.score.gravityMs(s.score.level)
+            while s.gravityAccumMs >= interval
+                s.gravityAccumMs = s.gravityAccumMs - interval
+                if canMoveTo(s, s.active.x, s.active.y + 1, s.active.rotation)
+                    s.active.y = s.active.y + 1
+                else
+                    exit while
+                end if
+            end while
+        end if
+        return s
+    end function
+
+    function moveLeft(state as object) as object
+        return shift(state, -1)
+    end function
+
+    function moveRight(state as object) as object
+        return shift(state, 1)
+    end function
+
+    ' Soft drop: one cell down, +1 point per cell, driven by player input.
+    function softDrop(state as object) as object
+        if state.status <> "playing" or state.active = invalid then return cloneState(state)
+        s = cloneState(state)
+        if canMoveTo(s, s.active.x, s.active.y + 1, s.active.rotation)
+            s.active.y = s.active.y + 1
+            s.score = brickrain.score.addDropPoints(s.score, 1, 1)
+            s.events.push({ kind: "move" })
+        end if
+        return s
+    end function
+
+    ' Hard drop: instant fall (+2 points per cell) and immediate lock.
+    function hardDrop(state as object) as object
+        if state.status <> "playing" or state.active = invalid then return cloneState(state)
+        s = cloneState(state)
+        distance = 0
+        while canMoveTo(s, s.active.x, s.active.y + 1, s.active.rotation)
+            s.active.y = s.active.y + 1
+            distance = distance + 1
+        end while
+        s.score = brickrain.score.addDropPoints(s.score, distance, 2)
+        s.events.push({ kind: "hardDrop" })
+        return lockActive(s)
+    end function
+
+    function rotateCw(state as object) as object
+        return rotate(state, 1)
+    end function
+
+    function rotateCcw(state as object) as object
+        return rotate(state, -1)
+    end function
+
+    ' SRS rotation: tries each wall-kick offset until one fits.
+    ' Kick tables use +y = up, so dy is SUBTRACTED on this y-down grid.
+    function rotate(state as object, direction as integer) as object
+        if state.status <> "playing" or state.active = invalid then return cloneState(state)
+        s = cloneState(state)
+        fromRot = s.active.rotation
+        toRot = (((fromRot + direction) mod 4) + 4) mod 4
+        kicks = brickrain.piece.kickTable(s.active.pieceType, fromRot, toRot)
+        wasGrounded = isGrounded(s)
+        for each kick in kicks
+            kickedX = s.active.x + kick.x
+            kickedY = s.active.y - kick.y
+            if canMoveTo(s, kickedX, kickedY, toRot)
+                s.active.x = kickedX
+                s.active.y = kickedY
+                s.active.rotation = toRot
+                applyLockReset(s, wasGrounded)
+                s.events.push({ kind: "rotate" })
+                return s
+            end if
+        end for
+        return s
+    end function
+
+    ' Hold: stashes the active piece; once per piece (resets when one locks).
+    function holdSwap(state as object) as object
+        if state.status <> "playing" or state.active = invalid or not state.canHold then return cloneState(state)
+        s = cloneState(state)
+        stashedType = s.active.pieceType
+        if s.hold = ""
+            dealt = brickrain.bag.deal(brickrain.bag.ensureQueue(s.bag, previewCount() + 1))
+            s.bag = dealt.bag
+            incomingType = dealt.pieceType
+        else
+            incomingType = s.hold
+        end if
+        s.hold = stashedType
+        s.canHold = false
+        s.lockTimerMs = 0
+        s.lockResets = 0
+        s.gravityAccumMs = 0
+        s.events.push({ kind: "hold" })
+        return placeAtSpawn(s, incomingType)
+    end function
+
+    function pause(state as object) as object
+        s = cloneState(state)
+        if s.status = "playing"
+            s.status = "paused"
+            s.events.push({ kind: "pause" })
+        end if
+        return s
+    end function
+
+    function resume(state as object) as object
+        s = cloneState(state)
+        if s.status = "paused"
+            s.status = "playing"
+            s.events.push({ kind: "resume" })
+        end if
+        return s
+    end function
+
+    ' Absolute board cells occupied by the active piece.
+    function activeCells(state as object) as object
+        if state.active = invalid then return []
+        return absoluteCells(state.active)
+    end function
+
+    ' Where the active piece would land on a hard drop (for the ghost piece).
+    function ghostCells(state as object) as object
+        if state.active = invalid then return []
+        ghostY = state.active.y
+        while canMoveTo(state, state.active.x, ghostY + 1, state.active.rotation)
+            ghostY = ghostY + 1
+        end while
+        return absoluteCells({
+            pieceType: state.active.pieceType,
+            rotation: state.active.rotation,
+            x: state.active.x,
+            y: ghostY
+        })
+    end function
+
+    ' Upcoming piece types (the visible "next" queue).
+    function nextTypes(state as object, count = 3 as integer) as object
+        filled = brickrain.bag.ensureQueue(state.bag, count)
+        upcoming = []
+        for i = 0 to count - 1
+            upcoming.push(filled.queue[i])
+        end for
+        return upcoming
+    end function
+
+    ' --- internals ---
+
+    function shift(state as object, dx as integer) as object
+        if state.status <> "playing" or state.active = invalid then return cloneState(state)
+        s = cloneState(state)
+        if canMoveTo(s, s.active.x + dx, s.active.y, s.active.rotation)
+            wasGrounded = isGrounded(s)
+            s.active.x = s.active.x + dx
+            applyLockReset(s, wasGrounded)
+            s.events.push({ kind: "move" })
+        end if
+        return s
+    end function
+
+    function isGrounded(state as object) as boolean
+        if state.active = invalid then return false
+        return not canMoveTo(state, state.active.x, state.active.y + 1, state.active.rotation)
+    end function
+
+    function canMoveTo(state as object, x as integer, y as integer, rotation as integer) as boolean
+        cells = absoluteCells({ pieceType: state.active.pieceType, rotation: rotation, x: x, y: y })
+        return brickrain.board.canPlace(state.board, cells)
+    end function
+
+    function absoluteCells(active as object) as object
+        cells = []
+        for each cell in brickrain.piece.cellsFor(active.pieceType, active.rotation)
+            cells.push({ x: active.x + cell.x, y: active.y + cell.y })
+        end for
+        return cells
+    end function
+
+    ' Successful move/rotation while grounded restarts the lock delay,
+    ' at most maxLockResets() times per piece.
+    sub applyLockReset(s as object, wasGrounded as boolean)
+        if wasGrounded and s.lockResets < maxLockResets()
+            s.lockTimerMs = 0
+            s.lockResets = s.lockResets + 1
+        end if
+    end sub
+
+    ' Writes the active piece into the board, scores any cleared lines and
+    ' spawns the next piece (or ends the game when the spawn is blocked).
+    function lockActive(s as object) as object
+        cells = absoluteCells(s.active)
+        s.board = brickrain.board.withCells(s.board, cells, brickrain.piece.typeIndex(s.active.pieceType))
+        rows = brickrain.board.fullRows(s.board)
+        if rows.count() > 0
+            s.board = brickrain.board.clearRows(s.board, rows)
+            result = brickrain.score.applyClear(s.score, rows.count())
+            s.score = result.score
+            s.events.push({ kind: "lineClear", lines: rows.count() })
+            if result.leveledUp then s.events.push({ kind: "levelUp", level: s.score.level })
+        else
+            s.events.push({ kind: "lock" })
+        end if
+        s.canHold = true
+        s.lockTimerMs = 0
+        s.lockResets = 0
+        s.gravityAccumMs = 0
+        return spawnNext(s)
+    end function
+
+    function spawnNext(s as object) as object
+        s.bag = brickrain.bag.ensureQueue(s.bag, previewCount() + 1)
+        dealt = brickrain.bag.deal(s.bag)
+        s.bag = dealt.bag
+        return placeAtSpawn(s, dealt.pieceType)
+    end function
+
+    ' Places a piece at its spawn position; a blocked spawn means game over.
+    function placeAtSpawn(s as object, pieceType as string) as object
+        x = 3
+        if brickrain.piece.boxSize(pieceType) = 2 then x = 4
+        candidate = { pieceType: pieceType, rotation: 0, x: x, y: 0 }
+        if brickrain.board.canPlace(s.board, absoluteCells(candidate))
+            s.active = candidate
+        else
+            s.active = invalid
+            s.status = "gameOver"
+            s.events.push({ kind: "gameOver" })
+        end if
+        return s
+    end function
+
+    ' Shallow clone with a fresh events array. Board, bag and score states
+    ' are immutable (their modules always return new AAs), so sharing the
+    ' references is safe; only `active` is mutated internally and is copied.
+    function cloneState(state as object) as object
+        active = invalid
+        if state.active <> invalid
+            active = {
+                pieceType: state.active.pieceType,
+                rotation: state.active.rotation,
+                x: state.active.x,
+                y: state.active.y
+            }
+        end if
+        return {
+            board: state.board,
+            bag: state.bag,
+            score: state.score,
+            active: active,
+            hold: state.hold,
+            canHold: state.canHold,
+            status: state.status,
+            gravityAccumMs: state.gravityAccumMs,
+            lockTimerMs: state.lockTimerMs,
+            lockResets: state.lockResets,
+            events: []
+        }
+    end function
+
+end namespace

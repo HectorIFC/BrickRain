@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Root scene and router. Holds the dashboard and game screens plus the nickname
+  dialog, owns the registry-backed leaderboard, and moves the player through
+  Dashboard -> Nickname -> Game -> Game over -> Dashboard, persisting results.
+-->
+<component name="MainScene" extends="Scene" backgroundColor="0x080A22FF" backgroundURI="">
+    <children>
+        <LeaderboardScreen id="leaderboardScreen" />
+        <GameScreen id="gameScreen" visible="false" />
+        <NicknameDialog id="nicknameDialog" visible="false" />
+    </children>
+</component>

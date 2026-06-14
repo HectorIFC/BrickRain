@@ -1,0 +1,23 @@
+{
+  "rootDir": ".",
+  "files": [
+    "manifest",
+    "source/logic/**/*",
+    {
+      "src": "tests/support/**/*",
+      "dest": "source/tests/support"
+    },
+    {
+      "src": "tests/cases/**/*",
+      "dest": "source/tests/cases"
+    },
+    {
+      "src": "tests/headless/**/*",
+      "dest": "source/tests/headless"
+    }
+  ],
+  "stagingDir": "out/headless",
+  "createPackage": false,
+  "sourceMap": false,
+  "retainStagingDir": true
+}

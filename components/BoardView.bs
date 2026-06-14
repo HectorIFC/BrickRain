@@ -1,0 +1,100 @@
+import "pkg:/source/theme.bs"
+
+' Renders the playfield by recoloring a fixed pool of cell rectangles. The pool
+' and the four ghost-outline rectangles are built once; observers only ever set
+' colors and positions. Ghost rendering is wired here but only used from M3.
+
+sub init()
+    m.cols = brickrain.theme.cols()
+    m.rows = brickrain.theme.visibleRows()
+    m.pitch = brickrain.theme.cellSize() + brickrain.theme.cellGap()
+    m.colors = brickrain.theme.cellColors()
+    m.emptyColor = brickrain.theme.emptyCellColor()
+    m.lastColors = invalid
+
+    buildWellBackground()
+    buildCellPool()
+    buildGhostPool()
+end sub
+
+sub buildWellBackground()
+    background = createObject("roSGNode", "Rectangle")
+    background.width = m.cols * m.pitch - brickrain.theme.cellGap()
+    background.height = m.rows * m.pitch - brickrain.theme.cellGap()
+    background.color = brickrain.theme.gridLineColor()
+    m.top.appendChild(background)
+    m.background = background
+end sub
+
+sub buildCellPool()
+    m.cells = []
+    cellSize = brickrain.theme.cellSize()
+    for row = 0 to m.rows - 1
+        for col = 0 to m.cols - 1
+            cell = createObject("roSGNode", "Rectangle")
+            cell.width = cellSize
+            cell.height = cellSize
+            cell.translation = [col * m.pitch, row * m.pitch]
+            cell.color = brickrain.theme.emptyCellColor()
+            m.top.appendChild(cell)
+            m.cells.push(cell)
+        end for
+    end for
+end sub
+
+sub buildGhostPool()
+    m.ghost = []
+    cellSize = brickrain.theme.cellSize()
+    for i = 0 to 3
+        outline = createObject("roSGNode", "Rectangle")
+        outline.width = cellSize
+        outline.height = cellSize
+        outline.color = brickrain.theme.ghostColor()
+        outline.visible = false
+        m.top.appendChild(outline)
+        m.ghost.push(outline)
+    end for
+end sub
+
+' Recolors the whole pool from the flat color-index array supplied by GameScreen.
+sub onBoardColorsChange()
+    m.lastColors = m.top.boardColors
+    repaint()
+end sub
+
+' Applies the current level theme (empty-cell + grid colors) and repaints so the
+' backdrop updates immediately on level-up.
+sub onThemeChange()
+    theme = m.top.theme
+    if theme = invalid then return
+    if theme.empty <> invalid then m.emptyColor = theme.empty
+    if theme.grid <> invalid then m.background.color = theme.grid
+    repaint()
+end sub
+
+sub repaint()
+    colorsField = m.lastColors
+    if colorsField = invalid then return
+    for i = 0 to m.cells.count() - 1
+        index = 0
+        if i < colorsField.count() then index = colorsField[i]
+        if index <= 0 or index >= m.colors.count()
+            m.cells[i].color = m.emptyColor
+        else
+            m.cells[i].color = m.colors[index]
+        end if
+    end for
+end sub
+
+' Positions and shows the ghost outline cells (used from M3 onward).
+sub onGhostCellsChange()
+    cells = m.top.ghostCells
+    for i = 0 to m.ghost.count() - 1
+        if cells <> invalid and i < cells.count()
+            m.ghost[i].translation = [cells[i].x * m.pitch, cells[i].y * m.pitch]
+            m.ghost[i].visible = true
+        else
+            m.ghost[i].visible = false
+        end if
+    end for
+end sub

@@ -1,0 +1,70 @@
+import "pkg:/source/tests/cases/pieceCases.bs"
+import "pkg:/source/tests/cases/boardCases.bs"
+import "pkg:/source/tests/cases/bagCases.bs"
+import "pkg:/source/tests/cases/scoreCases.bs"
+import "pkg:/source/tests/cases/leaderboardCases.bs"
+import "pkg:/source/tests/cases/gameCases.bs"
+
+' Rooibos adapter for the pure-logic test suite.
+'
+' The actual assertions live in the shared `tests/cases/*.bs` case functions,
+' which are framework-agnostic (they fill a plain collector AA). This adapter
+' simply replays each case under Rooibos so the exact same checks that run
+' headless under brs-node (npm run test:logic) also run on a real device with
+' Rooibos' native code-coverage instrumentation (npm run test:device).
+namespace tests
+
+    @suite("BrickRain pure logic")
+    class LogicSuite extends rooibos.BaseTestSuite
+
+        '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        @describe("logic modules")
+        '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+        @it("piece: shapes, rotation and SRS kicks")
+        function pieceCases()
+            m.runCases(tests.pieceCases.runAll())
+        end function
+
+        @it("board: grid, collision and line clearing")
+        function boardCases()
+            m.runCases(tests.boardCases.runAll())
+        end function
+
+        @it("bag: seedable 7-bag randomizer")
+        function bagCases()
+            m.runCases(tests.bagCases.runAll())
+        end function
+
+        @it("score: scoring, leveling and gravity")
+        function scoreCases()
+            m.runCases(tests.scoreCases.runAll())
+        end function
+
+        @it("leaderboard: identity, ranking and persistence")
+        function leaderboardCases()
+            m.runCases(tests.leaderboardCases.runAll())
+        end function
+
+        @it("game: full state machine and integration flows")
+        function gameCases()
+            m.runCases(tests.gameCases.runAll())
+        end function
+
+        ' Replays a list of shared cases, failing the Rooibos test with a
+        ' readable message whenever a case collector reports a failure.
+        function runCases(results as object) as void
+            for each result in results
+                if result.collector.failures.count() > 0
+                    message = result.name + " failed:"
+                    for each failure in result.collector.failures
+                        message = message + chr(10) + "  - " + failure
+                    end for
+                    m.fail(message)
+                end if
+            end for
+        end function
+
+    end class
+
+end namespace

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Stats column shown to the right of the well: current nickname, score, level,
+  cleared lines, the hold slot and the next-3 preview queue. GameScreen pushes
+  values in through the interface fields; the .bs only updates labels and the
+  pooled preview rectangles.
+-->
+<component name="SidePanel" extends="Group">
+    <interface>
+        <field id="nickname" type="string" onChange="onNicknameChange" />
+        <field id="scoreValue" type="integer" onChange="onScoreChange" />
+        <field id="levelValue" type="integer" onChange="onLevelChange" />
+        <field id="linesValue" type="integer" onChange="onLinesChange" />
+        <field id="holdType" type="string" onChange="onHoldChange" />
+        <field id="nextTypes" type="array" onChange="onNextChange" />
+    </interface>
+    <children>
+        <Label id="nicknameLabel" text="" font="font:LargeBoldSystemFont" color="0x00F0F0FF" width="520" translation="[0, 0]" />
+
+        <Label text="SCORE" font="font:MediumSystemFont" color="0x8A8AB0FF" translation="[0, 70]" />
+        <Label id="scoreLabel" text="0" font="font:LargeBoldSystemFont" color="0xF5F5FAFF" translation="[0, 104]" />
+
+        <Label text="LEVEL" font="font:MediumSystemFont" color="0x8A8AB0FF" translation="[0, 184]" />
+        <Label id="levelLabel" text="1" font="font:LargeBoldSystemFont" color="0xF5F5FAFF" translation="[0, 218]" />
+
+        <Label text="LINES" font="font:MediumSystemFont" color="0x8A8AB0FF" translation="[200, 184]" />
+        <Label id="linesLabel" text="0" font="font:LargeBoldSystemFont" color="0xF5F5FAFF" translation="[200, 218]" />
+
+        <Label text="HOLD" font="font:MediumSystemFont" color="0x8A8AB0FF" translation="[0, 320]" />
+        <Group id="holdSlot" translation="[0, 360]" />
+
+        <Label text="NEXT" font="font:MediumSystemFont" color="0x8A8AB0FF" translation="[0, 500]" />
+        <Group id="nextSlot" translation="[0, 540]" />
+    </children>
+</component>

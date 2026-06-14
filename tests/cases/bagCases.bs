@@ -1,0 +1,84 @@
+import "pkg:/source/logic/bag.bs"
+import "pkg:/source/tests/support/assert.bs"
+
+' Unit tests for source/logic/bag.bs (seedable 7-bag randomizer).
+namespace tests.bagCases
+
+    function runAll() as object
+        return [
+            { name: "bag: each of 7 pieces appears exactly once per bag", collector: caseSevenBag() }
+            { name: "bag: same seed reproduces the same sequence", collector: caseDeterminism() }
+            { name: "bag: ensureQueue fills without changing dealt order", collector: caseEnsureQueue() }
+            { name: "bag: random generator stays in range", collector: caseRandomRange() }
+        ]
+    end function
+
+    function dealMany(seed as integer, count as integer) as object
+        bagState = brickrain.bag.create(seed)
+        dealtTypes = []
+        for i = 1 to count
+            dealt = brickrain.bag.deal(bagState)
+            bagState = dealt.bag
+            dealtTypes.push(dealt.pieceType)
+        end for
+        return dealtTypes
+    end function
+
+    function caseSevenBag() as object
+        c = tests.assert.newCollector()
+        dealtTypes = dealMany(42, 14)
+        for bagIndex = 0 to 1
+            counts = {}
+            for i = 0 to 6
+                pieceType = dealtTypes[bagIndex * 7 + i]
+                if counts[pieceType] = invalid then counts[pieceType] = 0
+                counts[pieceType] = counts[pieceType] + 1
+            end for
+            for each pieceType in brickrain.piece.types()
+                label = "bag " + bagIndex.toStr() + " deals exactly one " + pieceType
+                tests.assert.equal(c, counts[pieceType], 1, label)
+            end for
+        end for
+        return c
+    end function
+
+    function caseDeterminism() as object
+        c = tests.assert.newCollector()
+        first = dealMany(1234, 21)
+        second = dealMany(1234, 21)
+        identical = true
+        for i = 0 to first.count() - 1
+            if first[i] <> second[i] then identical = false
+        end for
+        tests.assert.isTrue(c, identical, "two runs with seed 1234 deal identical pieces")
+        return c
+    end function
+
+    function caseEnsureQueue() as object
+        c = tests.assert.newCollector()
+        bagState = brickrain.bag.create(7)
+        filled = brickrain.bag.ensureQueue(bagState, 4)
+        tests.assert.isTrue(c, filled.queue.count() >= 4, "queue holds at least 4 pieces")
+        ' Dealing must consume exactly the head of the ensured queue.
+        expected = filled.queue[0]
+        dealt = brickrain.bag.deal(filled)
+        tests.assert.equal(c, dealt.pieceType, expected, "deal returns the queue head")
+        tests.assert.equal(c, dealt.bag.queue[0], filled.queue[1], "queue advances by one")
+        return c
+    end function
+
+    function caseRandomRange() as object
+        c = tests.assert.newCollector()
+        state = 1
+        inRange = true
+        for i = 1 to 1000
+            result = brickrain.bag.nextRandom(state)
+            state = result.rngState
+            if result.value < 0 or result.value >= 1 then inRange = false
+            if state < 1 or state > 2147483646 then inRange = false
+        end for
+        tests.assert.isTrue(c, inRange, "1000 draws stay within [0,1) and valid state range")
+        return c
+    end function
+
+end namespace

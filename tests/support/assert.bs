@@ -1,0 +1,76 @@
+' Minimal assertion collector shared by all test cases. Each case function
+' creates a collector, runs its checks against it and returns it; runners
+' (headless brs-node runner or the Rooibos adapter) only inspect results.
+namespace tests.assert
+
+    function newCollector() as object
+        return { checks: 0, failures: [] }
+    end function
+
+    sub isTrue(c as object, condition as boolean, label as string)
+        c.checks = c.checks + 1
+        if not condition then c.failures.push(label)
+    end sub
+
+    sub isFalse(c as object, condition as boolean, label as string)
+        isTrue(c, not condition, label)
+    end sub
+
+    sub equal(c as object, actual as dynamic, expected as dynamic, label as string)
+        c.checks = c.checks + 1
+        if not valuesEqual(actual, expected)
+            c.failures.push(label + " — expected " + toDebugString(expected) + ", got " + toDebugString(actual))
+        end if
+    end sub
+
+    ' Asserts that a cells array ({x, y} AAs) contains the given coordinate.
+    sub containsCell(c as object, cells as object, x as integer, y as integer, label as string)
+        c.checks = c.checks + 1
+        for each cell in cells
+            if cell.x = x and cell.y = y then return
+        end for
+        c.failures.push(label + " — cell (" + x.toStr() + "," + y.toStr() + ") not found in " + toDebugString(cells))
+    end sub
+
+    ' Asserts that two cells arrays contain the same set of coordinates.
+    sub sameCells(c as object, actual as object, expected as object, label as string)
+        c.checks = c.checks + 1
+        if actual.count() <> expected.count()
+            c.failures.push(label + " — expected " + expected.count().toStr() + " cells, got " + actual.count().toStr())
+            return
+        end if
+        for each want in expected
+            found = false
+            for each cell in actual
+                if cell.x = want.x and cell.y = want.y then found = true
+            end for
+            if not found
+                c.failures.push(label + " — missing cell (" + want.x.toStr() + "," + want.y.toStr() + ")")
+                return
+            end if
+        end for
+    end sub
+
+    ' Asserts that a game events array contains an event of the given kind.
+    sub hasEvent(c as object, events as object, kind as string, label as string)
+        c.checks = c.checks + 1
+        for each event in events
+            if event.kind = kind then return
+        end for
+        c.failures.push(label + " — event '" + kind + "' not found in " + toDebugString(events))
+    end sub
+
+    function valuesEqual(a as dynamic, b as dynamic) as boolean
+        if a = invalid and b = invalid then return true
+        if a = invalid or b = invalid then return false
+        return a = b
+    end function
+
+    function toDebugString(value as dynamic) as string
+        if value = invalid then return "invalid"
+        text = formatJson(value)
+        if text = invalid or text = "" then return "<unprintable>"
+        return text
+    end function
+
+end namespace

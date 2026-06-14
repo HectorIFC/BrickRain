@@ -1,0 +1,23 @@
+{
+  "rootDir": ".",
+  "files": [
+    "manifest",
+    "source/**/*",
+    "components/**/*",
+    {
+      "src": "tests/support/**/*",
+      "dest": "source/tests/support"
+    },
+    {
+      "src": "tests/cases/**/*",
+      "dest": "source/tests/cases"
+    }
+  ],
+  "createPackage": false,
+  "copyToStaging": false,
+  "sourceMap": false,
+  "autoImportComponentScript": true,
+  "plugins": [
+    "@rokucommunity/bslint"
+  ]
+}

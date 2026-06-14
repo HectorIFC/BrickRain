@@ -1,0 +1,117 @@
+import "pkg:/source/logic/board.bs"
+import "pkg:/source/tests/support/assert.bs"
+
+' Unit tests for source/logic/board.bs (grid, collision, line clearing).
+namespace tests.boardCases
+
+    function runAll() as object
+        return [
+            { name: "board: creates an empty 10x22 grid", collector: caseCreate() }
+            { name: "board: collision and bounds checks", collector: caseCanPlace() }
+            { name: "board: withCells writes without mutating the input", collector: caseWithCellsPurity() }
+            { name: "board: detects and clears a single line", collector: caseSingleClear() }
+            { name: "board: clears a quad (4 lines at once)", collector: caseQuadClear() }
+            { name: "board: clears non-contiguous lines", collector: caseNonContiguousClear() }
+            { name: "board: detects stack in hidden rows", collector: caseHiddenRows() }
+        ]
+    end function
+
+    function fillRow(boardState as object, y as integer, skipX = -1 as integer) as object
+        cells = []
+        for x = 0 to boardState.width - 1
+            if x <> skipX then cells.push({ x: x, y: y })
+        end for
+        return brickrain.board.withCells(boardState, cells, 1)
+    end function
+
+    function caseCreate() as object
+        c = tests.assert.newCollector()
+        b = brickrain.board.create()
+        tests.assert.equal(c, b.width, 10, "width")
+        tests.assert.equal(c, b.height, 22, "height includes 2 hidden rows")
+        tests.assert.equal(c, b.hiddenRows, 2, "hidden rows")
+        tests.assert.equal(c, b.grid.count(), 220, "grid size")
+        tests.assert.equal(c, brickrain.board.fullRows(b).count(), 0, "no full rows on an empty board")
+        tests.assert.equal(c, brickrain.board.cellAt(b, 0, 0), 0, "cells start empty")
+        return c
+    end function
+
+    function caseCanPlace() as object
+        c = tests.assert.newCollector()
+        b = brickrain.board.create()
+        tests.assert.isTrue(c, brickrain.board.canPlace(b, [{ x: 0, y: 0 }, { x: 9, y: 21 }]), "empty cells are placeable")
+        tests.assert.isFalse(c, brickrain.board.canPlace(b, [{ x: -1, y: 0 }]), "left wall blocks")
+        tests.assert.isFalse(c, brickrain.board.canPlace(b, [{ x: 10, y: 0 }]), "right wall blocks")
+        tests.assert.isFalse(c, brickrain.board.canPlace(b, [{ x: 0, y: 22 }]), "floor blocks")
+        tests.assert.isFalse(c, brickrain.board.canPlace(b, [{ x: 0, y: -1 }]), "ceiling blocks")
+        occupied = brickrain.board.withCells(b, [{ x: 5, y: 5 }], 3)
+        tests.assert.isFalse(c, brickrain.board.canPlace(occupied, [{ x: 5, y: 5 }]), "occupied cell blocks")
+        return c
+    end function
+
+    function caseWithCellsPurity() as object
+        c = tests.assert.newCollector()
+        original = brickrain.board.create()
+        updated = brickrain.board.withCells(original, [{ x: 2, y: 3 }], 7)
+        tests.assert.equal(c, brickrain.board.cellAt(updated, 2, 3), 7, "value written in the copy")
+        tests.assert.equal(c, brickrain.board.cellAt(original, 2, 3), 0, "original board untouched")
+        return c
+    end function
+
+    function caseSingleClear() as object
+        c = tests.assert.newCollector()
+        b = brickrain.board.create()
+        b = fillRow(b, 21)
+        b = brickrain.board.withCells(b, [{ x: 0, y: 20 }], 5)
+        rows = brickrain.board.fullRows(b)
+        tests.assert.equal(c, rows.count(), 1, "one full row detected")
+        tests.assert.equal(c, rows[0], 21, "bottom row is full")
+        cleared = brickrain.board.clearRows(b, rows)
+        tests.assert.equal(c, brickrain.board.cellAt(cleared, 0, 21), 5, "marker block shifted down")
+        tests.assert.equal(c, brickrain.board.cellAt(cleared, 1, 21), 0, "rest of the shifted row is empty")
+        tests.assert.equal(c, brickrain.board.fullRows(cleared).count(), 0, "no full rows remain")
+        return c
+    end function
+
+    function caseQuadClear() as object
+        c = tests.assert.newCollector()
+        b = brickrain.board.create()
+        for y = 18 to 21
+            b = fillRow(b, y)
+        end for
+        rows = brickrain.board.fullRows(b)
+        tests.assert.equal(c, rows.count(), 4, "four full rows detected")
+        cleared = brickrain.board.clearRows(b, rows)
+        empty = true
+        for each value in cleared.grid
+            if value <> 0 then empty = false
+        end for
+        tests.assert.isTrue(c, empty, "board is empty after the quad clear")
+        return c
+    end function
+
+    function caseNonContiguousClear() as object
+        c = tests.assert.newCollector()
+        b = brickrain.board.create()
+        b = fillRow(b, 19)
+        b = fillRow(b, 21)
+        b = brickrain.board.withCells(b, [{ x: 5, y: 20 }], 4)
+        rows = brickrain.board.fullRows(b)
+        tests.assert.equal(c, rows.count(), 2, "two separated full rows detected")
+        cleared = brickrain.board.clearRows(b, rows)
+        tests.assert.equal(c, brickrain.board.cellAt(cleared, 5, 21), 4, "partial row landed at the bottom")
+        tests.assert.equal(c, brickrain.board.cellAt(cleared, 5, 20), 0, "row above is empty")
+        tests.assert.equal(c, brickrain.board.fullRows(cleared).count(), 0, "no full rows remain")
+        return c
+    end function
+
+    function caseHiddenRows() as object
+        c = tests.assert.newCollector()
+        b = brickrain.board.create()
+        tests.assert.isFalse(c, brickrain.board.stackInHiddenRows(b), "empty board has nothing hidden")
+        b = brickrain.board.withCells(b, [{ x: 4, y: 1 }], 2)
+        tests.assert.isTrue(c, brickrain.board.stackInHiddenRows(b), "block in row 1 is in the hidden area")
+        return c
+    end function
+
+end namespace

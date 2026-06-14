@@ -1,0 +1,70 @@
+import "pkg:/source/logic/score.bs"
+import "pkg:/source/tests/support/assert.bs"
+
+' Unit tests for source/logic/score.bs (scoring, leveling, gravity speed).
+namespace tests.scoreCases
+
+    function runAll() as object
+        return [
+            { name: "score: line points follow the 100/300/500/800 table", collector: casePoints() }
+            { name: "score: level up lands exactly at 10 lines", collector: caseLevelBoundary() }
+            { name: "score: gravity speeds up and bottoms out at 80 ms", collector: caseGravity() }
+            { name: "score: drop bonuses are per cell", collector: caseDropPoints() }
+        ]
+    end function
+
+    function casePoints() as object
+        c = tests.assert.newCollector()
+        tests.assert.equal(c, brickrain.score.linePoints(1, 1), 100, "single at level 1")
+        tests.assert.equal(c, brickrain.score.linePoints(2, 1), 300, "double at level 1")
+        tests.assert.equal(c, brickrain.score.linePoints(3, 1), 500, "triple at level 1")
+        tests.assert.equal(c, brickrain.score.linePoints(4, 1), 800, "quad at level 1")
+        tests.assert.equal(c, brickrain.score.linePoints(4, 5), 4000, "quad at level 5")
+        tests.assert.equal(c, brickrain.score.linePoints(0, 3), 0, "no lines, no points")
+        return c
+    end function
+
+    function caseLevelBoundary() as object
+        c = tests.assert.newCollector()
+        nineLines = { score: 0, lines: 9, level: 1 }
+        result = brickrain.score.applyClear(nineLines, 1)
+        tests.assert.equal(c, result.score.lines, 10, "lines reach 10")
+        tests.assert.equal(c, result.score.level, 2, "level 2 exactly at 10 lines")
+        tests.assert.isTrue(c, result.leveledUp, "level-up flag set")
+
+        eightLines = { score: 0, lines: 8, level: 1 }
+        result = brickrain.score.applyClear(eightLines, 1)
+        tests.assert.equal(c, result.score.level, 1, "still level 1 at 9 lines")
+        tests.assert.isFalse(c, result.leveledUp, "no level-up flag at 9 lines")
+
+        ' A quad can jump the boundary in one clear.
+        result = brickrain.score.applyClear({ score: 0, lines: 17, level: 2 }, 4)
+        tests.assert.equal(c, result.score.lines, 21, "lines accumulate")
+        tests.assert.equal(c, result.score.level, 3, "level 3 after crossing 20 lines")
+        tests.assert.equal(c, result.score.score, 1600, "quad scored with the pre-clear level")
+        return c
+    end function
+
+    function caseGravity() as object
+        c = tests.assert.newCollector()
+        tests.assert.equal(c, brickrain.score.gravityMs(1), 1000, "level 1 interval")
+        tests.assert.equal(c, brickrain.score.gravityMs(2), 910, "level 2 interval")
+        tests.assert.equal(c, brickrain.score.gravityMs(11), 100, "level 11 interval")
+        tests.assert.equal(c, brickrain.score.gravityMs(12), 80, "level 12 hits the 80 ms floor")
+        tests.assert.equal(c, brickrain.score.gravityMs(30), 80, "interval never goes below 80 ms")
+        return c
+    end function
+
+    function caseDropPoints() as object
+        c = tests.assert.newCollector()
+        base = brickrain.score.create()
+        soft = brickrain.score.addDropPoints(base, 3, 1)
+        tests.assert.equal(c, soft.score, 3, "soft drop adds 1 per cell")
+        hard = brickrain.score.addDropPoints(soft, 10, 2)
+        tests.assert.equal(c, hard.score, 23, "hard drop adds 2 per cell")
+        tests.assert.equal(c, hard.lines, 0, "drops do not touch lines")
+        tests.assert.equal(c, base.score, 0, "input state is not mutated")
+        return c
+    end function
+
+end namespace

@@ -1,0 +1,89 @@
+import "pkg:/source/logic/piece.bs"
+import "pkg:/source/tests/support/assert.bs"
+
+' Unit tests for source/logic/piece.bs (shapes, rotation, SRS kick tables).
+namespace tests.pieceCases
+
+    function runAll() as object
+        return [
+            { name: "piece: type indexes map 1..7", collector: caseTypeIndexes() }
+            { name: "piece: spawn shapes are correct", collector: caseSpawnShapes() }
+            { name: "piece: four clockwise rotations return to spawn", collector: caseFullRotationCycle() }
+            { name: "piece: T rotation states follow SRS", collector: caseTRotationStates() }
+            { name: "piece: kick tables match the SRS standard", collector: caseKickTables() }
+        ]
+    end function
+
+    function caseTypeIndexes() as object
+        c = tests.assert.newCollector()
+        all = brickrain.piece.types()
+        tests.assert.equal(c, all.count(), 7, "there are 7 piece types")
+        for i = 0 to all.count() - 1
+            tests.assert.equal(c, brickrain.piece.typeIndex(all[i]), i + 1, "index of " + all[i])
+        end for
+        tests.assert.equal(c, brickrain.piece.typeIndex("X"), 0, "unknown type maps to 0")
+        return c
+    end function
+
+    function caseSpawnShapes() as object
+        c = tests.assert.newCollector()
+        iCells = brickrain.piece.spawnCells("I")
+        tests.assert.sameCells(c, iCells, [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 }], "I spawns flat in box row 1")
+        tCells = brickrain.piece.spawnCells("T")
+        tests.assert.sameCells(c, tCells, [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }], "T spawns pointing up")
+        for each pieceType in brickrain.piece.types()
+            tests.assert.equal(c, brickrain.piece.spawnCells(pieceType).count(), 4, pieceType + " has 4 cells")
+        end for
+        return c
+    end function
+
+    function caseFullRotationCycle() as object
+        c = tests.assert.newCollector()
+        for each pieceType in brickrain.piece.types()
+            spawn = brickrain.piece.cellsFor(pieceType, 0)
+            cycled = brickrain.piece.cellsFor(pieceType, 4)
+            tests.assert.sameCells(c, cycled, spawn, pieceType + " returns to spawn after 4 rotations")
+        end for
+        return c
+    end function
+
+    function caseTRotationStates() as object
+        c = tests.assert.newCollector()
+        ' SRS state 1 (clockwise from spawn): T points right.
+        state1 = brickrain.piece.cellsFor("T", 1)
+        tests.assert.sameCells(c, state1, [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 1, y: 2 }], "T state 1 points right")
+        ' SRS state 2: T points down.
+        state2 = brickrain.piece.cellsFor("T", 2)
+        tests.assert.sameCells(c, state2, [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 1, y: 2 }], "T state 2 points down")
+        ' SRS state 3: T points left.
+        state3 = brickrain.piece.cellsFor("T", 3)
+        tests.assert.sameCells(c, state3, [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 2 }], "T state 3 points left")
+        return c
+    end function
+
+    function caseKickTables() as object
+        c = tests.assert.newCollector()
+        ' O piece never kicks.
+        oKicks = brickrain.piece.kickTable("O", 0, 1)
+        tests.assert.equal(c, oKicks.count(), 1, "O has a single no-op kick")
+        tests.assert.equal(c, oKicks[0].x, 0, "O kick is (0,0)")
+        ' J/L/S/T/Z share the standard table: 0->1 second test is (-1, 0).
+        tKicks = brickrain.piece.kickTable("T", 0, 1)
+        tests.assert.equal(c, tKicks.count(), 5, "JLSTZ tables have 5 tests")
+        tests.assert.equal(c, tKicks[1].x, -1, "JLSTZ 0>1 kick 2 dx")
+        tests.assert.equal(c, tKicks[1].y, 0, "JLSTZ 0>1 kick 2 dy")
+        tests.assert.equal(c, tKicks[4].x, -1, "JLSTZ 0>1 kick 5 dx")
+        tests.assert.equal(c, tKicks[4].y, -2, "JLSTZ 0>1 kick 5 dy")
+        ' I piece has its own table: 0->1 second test is (-2, 0).
+        iKicks = brickrain.piece.kickTable("I", 0, 1)
+        tests.assert.equal(c, iKicks.count(), 5, "I tables have 5 tests")
+        tests.assert.equal(c, iKicks[1].x, -2, "I 0>1 kick 2 dx")
+        tests.assert.equal(c, iKicks[3].x, -2, "I 0>1 kick 4 dx")
+        tests.assert.equal(c, iKicks[3].y, -1, "I 0>1 kick 4 dy")
+        ' Reverse rotation 1->0 mirrors 0->1.
+        backKicks = brickrain.piece.kickTable("T", 1, 0)
+        tests.assert.equal(c, backKicks[1].x, 1, "JLSTZ 1>0 kick 2 dx is mirrored")
+        return c
+    end function
+
+end namespace

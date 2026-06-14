@@ -1,0 +1,110 @@
+' Board (well) state: grid storage, collision checks, line detection/clearing.
+' Pure module: every mutation returns a new board AA, inputs are never changed.
+namespace brickrain.board
+
+    ' Creates an empty board. The grid is a flat array of integers
+    ' (index = y * width + x): 0 = empty, 1..7 = piece type index.
+    ' The top `hiddenRows` rows are the spawn area above the visible well.
+    function create(width = 10 as integer, visibleRows = 20 as integer, hiddenRows = 2 as integer) as object
+        height = visibleRows + hiddenRows
+        grid = []
+        for i = 1 to width * height
+            grid.push(0)
+        end for
+        return { width: width, height: height, hiddenRows: hiddenRows, grid: grid }
+    end function
+
+    function inBounds(boardState as object, x as integer, y as integer) as boolean
+        return x >= 0 and x < boardState.width and y >= 0 and y < boardState.height
+    end function
+
+    function cellAt(boardState as object, x as integer, y as integer) as integer
+        if not inBounds(boardState, x, y) then return -1
+        return boardState.grid[y * boardState.width + x]
+    end function
+
+    ' True when every cell is inside the board and currently empty.
+    function canPlace(boardState as object, cells as object) as boolean
+        for each cell in cells
+            if cellAt(boardState, cell.x, cell.y) <> 0 then return false
+        end for
+        return true
+    end function
+
+    ' Returns a new board with `value` written at every given cell.
+    function withCells(boardState as object, cells as object, value as integer) as object
+        grid = cloneGrid(boardState.grid)
+        for each cell in cells
+            if inBounds(boardState, cell.x, cell.y)
+                grid[cell.y * boardState.width + cell.x] = value
+            end if
+        end for
+        return withGrid(boardState, grid)
+    end function
+
+    ' Row indices (top to bottom) that are completely filled.
+    function fullRows(boardState as object) as object
+        rows = []
+        for y = 0 to boardState.height - 1
+            full = true
+            for x = 0 to boardState.width - 1
+                if boardState.grid[y * boardState.width + x] = 0
+                    full = false
+                    exit for
+                end if
+            end for
+            if full then rows.push(y)
+        end for
+        return rows
+    end function
+
+    ' Returns a new board with the given rows removed and the same number of
+    ' empty rows inserted at the top (everything above shifts down).
+    function clearRows(boardState as object, rows as object) as object
+        if rows.count() = 0 then return boardState
+        cleared = {}
+        for each rowIndex in rows
+            cleared[rowIndex.toStr()] = true
+        end for
+        grid = []
+        for i = 1 to rows.count() * boardState.width
+            grid.push(0)
+        end for
+        for y = 0 to boardState.height - 1
+            if cleared[y.toStr()] = invalid
+                for x = 0 to boardState.width - 1
+                    grid.push(boardState.grid[y * boardState.width + x])
+                end for
+            end if
+        end for
+        return withGrid(boardState, grid)
+    end function
+
+    ' True when the stack has any block inside the hidden spawn rows.
+    function stackInHiddenRows(boardState as object) as boolean
+        for y = 0 to boardState.hiddenRows - 1
+            for x = 0 to boardState.width - 1
+                if boardState.grid[y * boardState.width + x] <> 0 then return true
+            end for
+        end for
+        return false
+    end function
+
+    function cloneGrid(grid as object) as object
+        copied = []
+        for each value in grid
+            copied.push(value)
+        end for
+        return copied
+    end function
+
+    function withGrid(boardState as object, grid as object) as object
+        return {
+            width: boardState.width,
+            height: boardState.height,
+            hiddenRows: boardState.hiddenRows,
+            grid: grid
+        }
+    end function
+
+end namespace

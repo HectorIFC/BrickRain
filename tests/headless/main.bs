@@ -1,0 +1,47 @@
+import "pkg:/source/tests/cases/pieceCases.bs"
+import "pkg:/source/tests/cases/boardCases.bs"
+import "pkg:/source/tests/cases/bagCases.bs"
+import "pkg:/source/tests/cases/scoreCases.bs"
+import "pkg:/source/tests/cases/leaderboardCases.bs"
+import "pkg:/source/tests/cases/gameCases.bs"
+
+' Headless test runner: executes every shared test case under brs-node and
+' prints a parseable summary. scripts/run-headless-tests.js drives this and
+' turns the sentinel line into the process exit code for CI.
+sub main()
+    print "BrickRain headless logic tests"
+    print "=============================="
+    groups = [
+        { name: "piece", results: tests.pieceCases.runAll() }
+        { name: "board", results: tests.boardCases.runAll() }
+        { name: "bag", results: tests.bagCases.runAll() }
+        { name: "score", results: tests.scoreCases.runAll() }
+        { name: "leaderboard", results: tests.leaderboardCases.runAll() }
+        { name: "game", results: tests.gameCases.runAll() }
+    ]
+    passed = 0
+    failed = 0
+    checks = 0
+    for each group in groups
+        for each result in group.results
+            checks = checks + result.collector.checks
+            if result.collector.failures.count() = 0
+                passed = passed + 1
+                print "[PASS] " + result.name + " (" + result.collector.checks.toStr() + " checks)"
+            else
+                failed = failed + 1
+                print "[FAIL] " + result.name
+                for each failure in result.collector.failures
+                    print "       - " + failure
+                end for
+            end if
+        end for
+    end for
+    print "=============================="
+    print "Cases: " + (passed + failed).toStr() + ", checks: " + checks.toStr() + ", failed: " + failed.toStr()
+    if failed = 0
+        print "BRICKRAIN_TESTS_RESULT: PASS"
+    else
+        print "BRICKRAIN_TESTS_RESULT: FAIL"
+    end if
+end sub

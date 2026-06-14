@@ -1,0 +1,199 @@
+import "pkg:/source/logic/leaderboard.bs"
+import "pkg:/source/theme.bs"
+
+' Custom keyboard nickname entry (see NicknameDialog.xml for why the platform
+' dialog is avoided). Builds a grid of character keys once, tracks a focused
+' cell, and edits an in-memory string. Confirming validates with the same pure
+' rules the logic tests cover and reports { confirmed, nickname } via `result`.
+
+sub init()
+    m.title = m.top.findNode("title")
+    m.inputText = m.top.findNode("inputText")
+    m.message = m.top.findNode("message")
+    m.keyboard = m.top.findNode("keyboard")
+
+    m.maxLen = 12
+    m.cellH = 84
+    m.rowPitch = 96
+    m.gap = 12
+    m.charCellW = 120
+    m.specialCellW = 200
+
+    ' Key layout: four rows of characters plus a row of actions. Navigation is
+    ' by row/column index, so per-row widths can differ freely.
+    m.keyRows = [
+        ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
+        ["J", "K", "L", "M", "N", "O", "P", "Q", "R"],
+        ["S", "T", "U", "V", "W", "X", "Y", "Z", "0"],
+        ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+        ["DEL", "DONE", "CANCEL"]
+    ]
+    m.input = ""
+    m.focusRow = 0
+    m.focusCol = 0
+    buildKeyboard()
+end sub
+
+' Creates one Rectangle + Label per key, centered per row, and remembers the
+' node pair for highlight updates.
+sub buildKeyboard()
+    m.cells = []
+    for r = 0 to m.keyRows.count() - 1
+        row = m.keyRows[r]
+        cellW = m.charCellW
+        if r = m.keyRows.count() - 1 then cellW = m.specialCellW
+        totalW = row.count() * cellW + (row.count() - 1) * m.gap
+        startX = (1920 - totalW) \ 2
+        rowCells = []
+        for c = 0 to row.count() - 1
+            x = startX + c * (cellW + m.gap)
+            y = r * m.rowPitch
+            bg = createObject("roSGNode", "Rectangle")
+            bg.width = cellW
+            bg.height = m.cellH
+            bg.translation = [x, y]
+            m.keyboard.appendChild(bg)
+            label = createObject("roSGNode", "Label")
+            label.text = row[c]
+            label.font = "font:MediumBoldSystemFont"
+            label.width = cellW
+            label.height = m.cellH
+            label.horizAlign = "center"
+            label.vertAlign = "center"
+            label.translation = [x, y]
+            m.keyboard.appendChild(label)
+            rowCells.push({ bg: bg, label: label })
+        end for
+        m.cells.push(rowCells)
+    end for
+    updateHighlight()
+end sub
+
+' --- show / hide ---
+
+sub onShowChange()
+    if m.top.show
+        m.input = sanitizePrefill(m.top.lastNickname)
+        m.focusRow = 0
+        m.focusCol = 0
+        m.message.text = ""
+        refreshInput()
+        updateHighlight()
+        m.top.visible = true
+        m.top.setFocus(true)
+    else
+        m.top.visible = false
+    end if
+end sub
+
+' Keeps only A-Z/0-9 from a prior nickname, uppercased and capped, as the
+' starting text so a returning player can tweak rather than retype.
+function sanitizePrefill(value as string) as string
+    cleaned = ""
+    upper = ucase(value)
+    for i = 1 to len(upper)
+        ch = mid(upper, i, 1)
+        if isAllowedChar(ch) and len(cleaned) < m.maxLen then cleaned = cleaned + ch
+    end for
+    return cleaned
+end function
+
+function isAllowedChar(ch as string) as boolean
+    return (ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9")
+end function
+
+' --- input ---
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+    if key = "back"
+        cancel()
+        return true
+    else if key = "left"
+        moveFocus(0, -1)
+        return true
+    else if key = "right"
+        moveFocus(0, 1)
+        return true
+    else if key = "up"
+        moveFocus(-1, 0)
+        return true
+    else if key = "down"
+        moveFocus(1, 0)
+        return true
+    else if key = "OK"
+        activate()
+        return true
+    end if
+    return false
+end function
+
+sub moveFocus(dRow as integer, dCol as integer)
+    m.focusRow = clamp(m.focusRow + dRow, 0, m.keyRows.count() - 1)
+    ' lastCol is for the destination row, so this clamp also keeps the column
+    ' valid when moving into a shorter row (e.g. down onto the action row).
+    lastCol = m.keyRows[m.focusRow].count() - 1
+    m.focusCol = clamp(m.focusCol + dCol, 0, lastCol)
+    updateHighlight()
+end sub
+
+sub activate()
+    value = m.keyRows[m.focusRow][m.focusCol]
+    if value = "DEL"
+        if len(m.input) > 0 then m.input = left(m.input, len(m.input) - 1)
+        refreshInput()
+    else if value = "DONE"
+        confirm()
+    else if value = "CANCEL"
+        cancel()
+    else
+        if len(m.input) < m.maxLen then m.input = m.input + value
+        refreshInput()
+    end if
+end sub
+
+sub confirm()
+    validation = brickrain.leaderboard.validateNickname(m.input)
+    if validation.valid
+        finish({ confirmed: true, nickname: validation.value })
+    else
+        m.message.text = validation.reason
+    end if
+end sub
+
+sub cancel()
+    finish({ confirmed: false, nickname: "" })
+end sub
+
+sub finish(outcome as object)
+    m.top.visible = false
+    m.top.show = false
+    m.top.result = outcome
+end sub
+
+' --- rendering ---
+
+sub refreshInput()
+    m.inputText.text = m.input + "_"
+end sub
+
+sub updateHighlight()
+    for r = 0 to m.cells.count() - 1
+        for c = 0 to m.cells[r].count() - 1
+            cell = m.cells[r][c]
+            if r = m.focusRow and c = m.focusCol
+                cell.bg.color = brickrain.theme.accentColor()
+                cell.label.color = brickrain.theme.backgroundColor()
+            else
+                cell.bg.color = brickrain.theme.panelColor()
+                cell.label.color = brickrain.theme.textColor()
+            end if
+        end for
+    end for
+end sub
+
+function clamp(value as integer, low as integer, high as integer) as integer
+    if value < low then return low
+    if value > high then return high
+    return value
+end function

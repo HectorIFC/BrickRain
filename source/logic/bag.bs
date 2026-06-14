@@ -1,0 +1,73 @@
+import "pkg:/source/logic/piece.bs"
+
+' 7-bag piece randomizer: every run of 7 deals contains each tetromino
+' exactly once. Seedable for reproducible games and tests.
+' Pure module: every mutation returns a new bag AA.
+namespace brickrain.bag
+
+    ' Creates a bag state. Pass a positive seed for a deterministic sequence;
+    ' -1 (default) draws a random seed once, so all later deals stay pure.
+    function create(seed = -1 as integer) as object
+        rngState = seed
+        if rngState < 1 then rngState = int(rnd(0) * 2147483645) + 1
+        return { rngState: rngState, queue: [] }
+    end function
+
+    ' Park-Miller "minimal standard" generator: state = state * 16807 mod (2^31 - 1).
+    ' Computed in double precision so the product never loses integer accuracy.
+    function nextRandom(rngState as integer) as object
+        product# = rngState * 16807#
+        modulus# = 2147483647#
+        remainder# = product# - int(product# / modulus#) * modulus#
+        if remainder# < 1 then remainder# = 1
+        return { rngState: int(remainder#), value: remainder# / modulus# }
+    end function
+
+    ' Returns a new bag whose queue holds at least minCount upcoming pieces.
+    function ensureQueue(bagState as object, minCount as integer) as object
+        if bagState.queue.count() >= minCount then return bagState
+        queue = []
+        for each pieceType in bagState.queue
+            queue.push(pieceType)
+        end for
+        rngState = bagState.rngState
+        while queue.count() < minCount
+            shuffled = shuffleBag(rngState)
+            rngState = shuffled.rngState
+            for each pieceType in shuffled.pieces
+                queue.push(pieceType)
+            end for
+        end while
+        return { rngState: rngState, queue: queue }
+    end function
+
+    ' Deals the next piece. Returns { bag, pieceType }.
+    function deal(bagState as object) as object
+        filled = ensureQueue(bagState, 1)
+        queue = []
+        for i = 1 to filled.queue.count() - 1
+            queue.push(filled.queue[i])
+        end for
+        return {
+            bag: { rngState: filled.rngState, queue: queue },
+            pieceType: filled.queue[0]
+        }
+    end function
+
+    ' Fisher-Yates shuffle of one fresh bag of 7. Returns { pieces, rngState }.
+    function shuffleBag(rngState as integer) as object
+        pieces = brickrain.piece.types()
+        state = rngState
+        for i = pieces.count() - 1 to 1 step -1
+            randomResult = nextRandom(state)
+            state = randomResult.rngState
+            j = int(randomResult.value * (i + 1))
+            if j > i then j = i
+            swap = pieces[i]
+            pieces[i] = pieces[j]
+            pieces[j] = swap
+        end for
+        return { pieces: pieces, rngState: state }
+    end function
+
+end namespace

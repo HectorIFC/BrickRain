@@ -1,0 +1,98 @@
+' Tetromino definitions: shapes, rotation states and SRS wall kicks.
+' Pure module: no SceneGraph dependencies.
+namespace brickrain.piece
+
+    ' The 7 standard tetromino type ids, in canonical order.
+    function types() as object
+        return ["I", "O", "T", "S", "Z", "J", "L"]
+    end function
+
+    ' Numeric index (1..7) for a piece type; 0 means empty board cell.
+    function typeIndex(pieceType as string) as integer
+        all = types()
+        for i = 0 to all.count() - 1
+            if all[i] = pieceType then return i + 1
+        end for
+        return 0
+    end function
+
+    ' SRS bounding-box size for a piece type.
+    function boxSize(pieceType as string) as integer
+        if pieceType = "I" then return 4
+        if pieceType = "O" then return 2
+        return 3
+    end function
+
+    ' Spawn-state (rotation 0) cells, relative to the bounding box.
+    ' Coordinates are x to the right, y DOWNWARD (board row order).
+    function spawnCells(pieceType as string) as object
+        if pieceType = "I" then return [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 }]
+        if pieceType = "O" then return [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }]
+        if pieceType = "T" then return [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }]
+        if pieceType = "S" then return [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }]
+        if pieceType = "Z" then return [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 1 }]
+        if pieceType = "J" then return [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }]
+        if pieceType = "L" then return [{ x: 2, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }]
+        return []
+    end function
+
+    ' Rotates box-relative cells 90 degrees clockwise inside an n x n box.
+    ' With y growing downward, clockwise is: (x, y) -> (n - 1 - y, x).
+    function rotateCellsCw(cells as object, n as integer) as object
+        rotated = []
+        for each cell in cells
+            rotated.push({ x: n - 1 - cell.y, y: cell.x })
+        end for
+        return rotated
+    end function
+
+    ' Box-relative cells for a piece type at a rotation state (0..3).
+    function cellsFor(pieceType as string, rotation as integer) as object
+        cells = spawnCells(pieceType)
+        n = boxSize(pieceType)
+        turns = ((rotation mod 4) + 4) mod 4
+        for i = 1 to turns
+            cells = rotateCellsCw(cells, n)
+        end for
+        return cells
+    end function
+
+    ' SRS wall-kick offsets to try, in order, when rotating fromRot -> toRot.
+    ' Offsets use the SRS guideline convention where +y means UP; board code
+    ' must SUBTRACT dy when applying them to this repo's y-down grid.
+    function kickTable(pieceType as string, fromRot as integer, toRot as integer) as object
+        if pieceType = "O" then return [{ x: 0, y: 0 }]
+        key = fromToKey(fromRot, toRot)
+        if pieceType = "I"
+            tables = {
+                "0>1": [{ x: 0, y: 0 }, { x: -2, y: 0 }, { x: 1, y: 0 }, { x: -2, y: -1 }, { x: 1, y: 2 }],
+                "1>0": [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: -1, y: 0 }, { x: 2, y: 1 }, { x: -1, y: -2 }],
+                "1>2": [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 2, y: 0 }, { x: -1, y: 2 }, { x: 2, y: -1 }],
+                "2>1": [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: -2, y: 0 }, { x: 1, y: -2 }, { x: -2, y: 1 }],
+                "2>3": [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: -1, y: 0 }, { x: 2, y: 1 }, { x: -1, y: -2 }],
+                "3>2": [{ x: 0, y: 0 }, { x: -2, y: 0 }, { x: 1, y: 0 }, { x: -2, y: -1 }, { x: 1, y: 2 }],
+                "3>0": [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: -2, y: 0 }, { x: 1, y: -2 }, { x: -2, y: 1 }],
+                "0>3": [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 2, y: 0 }, { x: -1, y: 2 }, { x: 2, y: -1 }]
+            }
+        else
+            tables = {
+                "0>1": [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: -1, y: 1 }, { x: 0, y: -2 }, { x: -1, y: -2 }],
+                "1>0": [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: -1 }, { x: 0, y: 2 }, { x: 1, y: 2 }],
+                "1>2": [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: -1 }, { x: 0, y: 2 }, { x: 1, y: 2 }],
+                "2>1": [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: -1, y: 1 }, { x: 0, y: -2 }, { x: -1, y: -2 }],
+                "2>3": [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: -2 }, { x: 1, y: -2 }],
+                "3>2": [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: -1, y: -1 }, { x: 0, y: 2 }, { x: -1, y: 2 }],
+                "3>0": [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: -1, y: -1 }, { x: 0, y: 2 }, { x: -1, y: 2 }],
+                "0>3": [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: -2 }, { x: 1, y: -2 }]
+            }
+        end if
+        kicks = tables[key]
+        if kicks = invalid then return [{ x: 0, y: 0 }]
+        return kicks
+    end function
+
+    function fromToKey(fromRot as integer, toRot as integer) as string
+        return fromRot.toStr() + ">" + toRot.toStr()
+    end function
+
+end namespace
