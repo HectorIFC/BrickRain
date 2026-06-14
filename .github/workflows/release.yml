@@ -28,7 +28,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
-          node-version: "20"
+          # brs-node 2.2.0 uses Iterator Helpers (.values().map(...)) and fails
+          # to load on Node 20; Node 22+ (V8 12.3) is required.
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
