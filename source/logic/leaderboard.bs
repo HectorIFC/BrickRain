@@ -1,5 +1,7 @@
-' Leaderboard rules: one entry per nickname (best score only), ranking,
-' capacity cap and JSON (de)serialization for registry persistence.
+' Leaderboard rules: every playthrough is recorded as its own entry (the same
+' nickname can appear multiple times), ranked by score descending with an
+' earliest-date tie-break, capped at maxEntries(), plus JSON (de)serialization
+' for registry persistence.
 ' Pure module: registry I/O lives in the UI layer, never here.
 namespace brickrain.leaderboard
 
