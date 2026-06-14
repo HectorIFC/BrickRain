@@ -339,6 +339,10 @@ end sub
 
 sub quitToDashboard()
     m.tickTimer.control = "stop"
+    ' Cancel a pending new-record sound so it can't fire on the dashboard after
+    ' a quick exit from a record-setting game over.
+    m.recordTimer.control = "stop"
+    m.pendingRecord = false
     m.pauseOverlay.visible = false
     m.gameOverOverlay.visible = false
     m.top.quitToDashboard = true

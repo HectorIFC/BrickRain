@@ -46,12 +46,28 @@ namespace brickrain.leaderboard
     ' Hector 95). The result is sorted (score desc, earliest date wins ties) and
     ' capped at maxEntries(); entries beyond the cap drop from the bottom.
     function addEntry(leaderboardState as object, nickname as string, score as integer, dateText as string) as object
+        ' Defensive: skip malformed input so a bad nickname/date can never corrupt
+        ' ranking (a malformed date would key as 0 and win tie-breaks).
+        nicknameCheck = validateNickname(nickname)
+        if not nicknameCheck.valid then return leaderboardState
+        if not isValidDateText(dateText) then return leaderboardState
+
         entries = []
         for each entry in leaderboardState.entries
             entries.push(cloneEntry(entry))
         end for
-        entries.push({ nickname: nickname, score: score, date: dateText })
+        entries.push({ nickname: nicknameCheck.value, score: score, date: dateText })
         return { entries: capEntries(sortEntries(entries)) }
+    end function
+
+    ' True when dateText is a well-formed dd/mm/yyyy calendar date.
+    function isValidDateText(dateText as string) as boolean
+        if len(dateText) <> 10 then return false
+        if mid(dateText, 3, 1) <> "/" or mid(dateText, 6, 1) <> "/" then return false
+        day = int(val(mid(dateText, 1, 2)))
+        month = int(val(mid(dateText, 4, 2)))
+        year = int(val(mid(dateText, 7, 4)))
+        return day >= 1 and day <= 31 and month >= 1 and month <= 12 and year >= 1
     end function
 
     ' The top (rank 1) score on the leaderboard, or 0 when it is empty. This is
@@ -116,8 +132,10 @@ namespace brickrain.leaderboard
     function isValidEntry(entry as dynamic) as boolean
         if entry = invalid or getInterface(entry, "ifAssociativeArray") = invalid then return false
         if getInterface(entry.nickname, "ifString") = invalid then return false
+        if not validateNickname(entry.nickname).valid then return false
         if not isNumber(entry.score) then return false
         if getInterface(entry.date, "ifString") = invalid then return false
+        if not isValidDateText(entry.date) then return false
         return true
     end function
 

@@ -20,11 +20,20 @@ if (!match) {
 }
 const [, major, minor, patch] = match;
 
+// Replace a manifest line, failing loudly if the key is absent so a renamed key
+// can never ship a wrong or partial version.
+function replaceOrFail(text, pattern, replacement, keyName) {
+  if (!pattern.test(text)) {
+    console.error(`Manifest is missing required key: ${keyName}`);
+    process.exit(1);
+  }
+  return text.replace(pattern, replacement);
+}
+
 let manifest = readFileSync(manifestPath, "utf8");
-manifest = manifest
-  .replace(/^major_version=.*$/m, "major_version=" + major)
-  .replace(/^minor_version=.*$/m, "minor_version=" + minor)
-  .replace(/^build_version=.*$/m, "build_version=" + patch);
+manifest = replaceOrFail(manifest, /^major_version=.*$/m, "major_version=" + major, "major_version");
+manifest = replaceOrFail(manifest, /^minor_version=.*$/m, "minor_version=" + minor, "minor_version");
+manifest = replaceOrFail(manifest, /^build_version=.*$/m, "build_version=" + patch, "build_version");
 
 writeFileSync(manifestPath, manifest);
 console.log(`Manifest version set to ${major}.${minor}.${patch}`);

@@ -1,0 +1,4 @@
+# Python dependencies for the asset generators (tools/generate_*.py).
+# Install with: pip install -r tools/requirements.txt
+Pillow
+numpy

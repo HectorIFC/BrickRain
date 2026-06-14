@@ -14,6 +14,7 @@ namespace tests.leaderboardCases
             { name: "leaderboard: capacity is capped at 50 entries", collector: caseCap() }
             { name: "leaderboard: JSON round trip preserves entries", collector: caseRoundTrip() }
             { name: "leaderboard: malformed JSON degrades to empty", collector: caseBadJson() }
+            { name: "leaderboard: malformed nickname/date is rejected", collector: caseRejectsMalformed() }
         ]
     end function
 
@@ -132,6 +133,28 @@ namespace tests.leaderboardCases
         restored = brickrain.leaderboard.deserialize(mixed)
         tests.assert.equal(c, restored.entries.count(), 1, "malformed entries are skipped")
         tests.assert.equal(c, restored.entries[0].nickname, "Ok", "valid entry survives")
+        return c
+    end function
+
+    function caseRejectsMalformed() as object
+        c = tests.assert.newCollector()
+        ' addEntry drops invalid input instead of corrupting the ranking.
+        lb = brickrain.leaderboard.create()
+        lb = brickrain.leaderboard.addEntry(lb, "Hector", 100, "13/06/2026")
+        lb = brickrain.leaderboard.addEntry(lb, "Hector", 200, "2026-13-06")
+        tests.assert.equal(c, lb.entries.count(), 1, "malformed date is rejected")
+        lb = brickrain.leaderboard.addEntry(lb, "x", 300, "14/06/2026")
+        tests.assert.equal(c, lb.entries.count(), 1, "too-short nickname is rejected")
+        lb = brickrain.leaderboard.addEntry(lb, "  Bob  ", 90, "14/06/2026")
+        tests.assert.equal(c, lb.entries.count(), 2, "valid padded nickname is accepted")
+        tests.assert.equal(c, lb.entries[1].nickname, "Bob", "accepted nickname is trimmed")
+        tests.assert.equal(c, brickrain.leaderboard.isValidDateText("32/01/2026"), false, "day out of range rejected")
+        tests.assert.equal(c, brickrain.leaderboard.isValidDateText("01/13/2026"), false, "month out of range rejected")
+        tests.assert.equal(c, brickrain.leaderboard.isValidDateText("14/06/2026"), true, "well-formed date accepted")
+
+        ' deserialize skips a row with a malformed date.
+        bad = "{""entries"": [{""nickname"": ""Al"", ""score"": 5, ""date"": ""bad-date!!""}]}"
+        tests.assert.equal(c, brickrain.leaderboard.deserialize(bad).entries.count(), 0, "corrupted-date row is dropped on load")
         return c
     end function
 

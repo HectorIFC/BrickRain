@@ -100,7 +100,8 @@ BrickRain is a **pure functional core** plus a thin **imperative shell**:
   (`MainScene` router, `LeaderboardScreen`, `NicknameDialog`, `GameScreen`, node-pooled
   `BoardView`, `SidePanel`, pause/game-over overlays).
 - `source/registryAdapter.bs` — the only registry touch-point (persistence).
-- `tools/` — Python generators for the original artwork and chiptune audio.
+- `tools/` — Python generators for the original artwork and chiptune audio
+  (`pip install -r tools/requirements.txt`, then run `python tools/generate_*.py`).
 
 See [brickrain_prd.md](brickrain_prd.md) for the full product/architecture spec.
 

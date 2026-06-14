@@ -60,6 +60,12 @@ if (run.error) {
   console.error("Failed to launch brs-cli:", run.error.message);
   process.exit(1);
 }
+// A crash or abnormal exit is a failure even if the PASS sentinel was printed
+// before the process died (a healthy run exits 0).
+if (run.status !== 0) {
+  console.error(`\nHeadless tests FAILED (brs-cli exit code: ${run.status}).`);
+  process.exit(run.status === null ? 1 : run.status);
+}
 const passed = (run.stdout || "").includes("BRICKRAIN_TESTS_RESULT: PASS");
 if (!passed) {
   console.error("\nHeadless tests FAILED (sentinel not found or failures reported).");
