@@ -1,0 +1,351 @@
+class_name GameScreen
+extends Control
+
+# Imperative shell around the pure game state machine. Every action and every
+# frame produces a fresh game state (with an events list); this scene reflects
+# that state into the board and side panel and plays the matching sounds.
+#
+# Mirrors components/GameScreen.bs. The pure core is untouched — this layer
+# only injects time and input and renders what comes back.
+
+signal game_finished(result: Dictionary)
+signal quit_requested
+
+# Delay before new_record.ogg, so it does not overlap game_over.ogg.
+const RECORD_SOUND_DELAY_S := 0.9
+
+var _state: Dictionary = {}
+var _last_level := -1
+var _player_nickname := ""
+var _record_score := 0
+var _pending_record := false
+var _running := false
+var _accum_ms := 0.0
+var _portrait := true
+
+var _root_box: BoxContainer
+var _board_view: BoardView
+var _side_panel: SidePanel
+var _button_bar: BoxContainer
+var _input: InputRouter
+var _audio: GameAudio
+var _pause_overlay: MenuOverlay
+var _game_over_overlay: MenuOverlay
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build()
+	resized.connect(_apply_layout)
+	_apply_layout()
+
+
+func _build() -> void:
+	var background := ColorRect.new()
+	background.color = GameTheme.background_color()
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(background)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_bottom", 12)
+	add_child(margin)
+
+	_root_box = BoxContainer.new()
+	_root_box.add_theme_constant_override("separation", 12)
+	margin.add_child(_root_box)
+
+	_side_panel = SidePanel.new()
+	_root_box.add_child(_side_panel)
+
+	_board_view = BoardView.new()
+	_board_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_board_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_root_box.add_child(_board_view)
+
+	_button_bar = BoxContainer.new()
+	_button_bar.add_theme_constant_override("separation", 10)
+	_root_box.add_child(_button_bar)
+	_button_bar.add_child(_make_touch_button("HOLD", "hold"))
+	_button_bar.add_child(_make_touch_button("II", "pause"))
+
+	_input = InputRouter.new()
+	_input.action.connect(_on_action)
+	# Stays inert until start_game, so keys typed on the nickname or dashboard
+	# screens cannot reach the game.
+	_input.set_enabled(false)
+	add_child(_input)
+
+	_audio = GameAudio.new()
+	add_child(_audio)
+
+	_pause_overlay = MenuOverlay.new()
+	_pause_overlay.visible = false
+	_pause_overlay.selection.connect(_on_pause_selection)
+	add_child(_pause_overlay)
+
+	_game_over_overlay = MenuOverlay.new()
+	_game_over_overlay.visible = false
+	_game_over_overlay.selection.connect(_on_game_over_selection)
+	add_child(_game_over_overlay)
+
+
+# On-screen controls for touch: hold has no natural gesture, and pause needs to
+# stay reachable without a keyboard.
+func _make_touch_button(text: String, action_name: String) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.add_theme_font_size_override("font_size", 20)
+	button.custom_minimum_size = Vector2(72, 56)
+	button.focus_mode = Control.FOCUS_NONE
+	button.pressed.connect(_on_action.bind(action_name))
+	return button
+
+
+# FR03: portrait stacks panel / well / controls; landscape puts them side by
+# side. The well itself always centres inside whatever rect it is given.
+func _apply_layout() -> void:
+	_portrait = size.y >= size.x
+	if _root_box == null:
+		return
+	_root_box.vertical = _portrait
+	_button_bar.vertical = not _portrait
+	_side_panel.set_portrait(_portrait)
+
+
+# Current orientation, for tests and for callers that need to mirror it.
+func is_portrait() -> bool:
+	return _portrait
+
+
+# The well rect actually in use, so tests can assert it stays inside the view.
+func board_metrics() -> Dictionary:
+	return _board_view.well_metrics()
+
+
+# --- lifecycle ---
+
+
+func start_game(nickname: String, record_score: int) -> void:
+	_player_nickname = nickname
+	_record_score = record_score
+	_pending_record = false
+	_last_level = -1
+	_accum_ms = 0.0
+	_state = Game.create()
+	_pause_overlay.visible = false
+	_game_over_overlay.visible = false
+	_running = true
+	_input.set_enabled(true)
+	_render()
+
+
+func _process(delta: float) -> void:
+	if not _running or _state.is_empty() or _state["status"] != "playing":
+		return
+	# Accumulate fractional milliseconds so slow frames never lose gravity time.
+	_accum_ms += delta * 1000.0
+	var whole_ms := int(_accum_ms)
+	if whole_ms <= 0:
+		return
+	_accum_ms -= float(whole_ms)
+	_perform(Game.advance(_state, whole_ms))
+
+
+# --- input ---
+
+
+func _on_action(name: String) -> void:
+	if _state.is_empty():
+		return
+	if name == "pause":
+		if _state["status"] == "playing":
+			_open_pause()
+		elif _state["status"] == "paused":
+			_resume_game()
+		return
+	if _state["status"] != "playing":
+		return
+
+	match name:
+		"move_left":
+			_perform(Game.move_left(_state))
+		"move_right":
+			_perform(Game.move_right(_state))
+		"soft_drop":
+			_perform(Game.soft_drop(_state))
+		"hard_drop":
+			_perform(Game.hard_drop(_state))
+		"rotate_cw":
+			_perform(Game.rotate_cw(_state))
+		"rotate_ccw":
+			_perform(Game.rotate_ccw(_state))
+		"hold":
+			_perform(Game.hold_swap(_state))
+
+
+# --- state application ---
+
+
+# Adopts a new game state, plays its sounds, repaints and reacts to game over.
+func _perform(new_state: Dictionary) -> void:
+	_state = new_state
+	_audio.play_events(new_state["events"])
+	_render()
+	if new_state["status"] == "gameOver":
+		_on_game_over()
+
+
+func _render() -> void:
+	# Push a new well theme only when the level actually changes.
+	var level := int(_state["score"]["level"])
+	if level != _last_level:
+		_board_view.set_level_theme(GameTheme.board_theme_for_level(level))
+		_last_level = level
+	_board_view.set_board(_build_board_colors(_state), _build_ghost_cells(_state))
+	_side_panel.set_nickname(_player_nickname)
+	_side_panel.set_stats(int(_state["score"]["score"]), level, int(_state["score"]["lines"]))
+	_side_panel.set_hold(str(_state["hold"]))
+	_side_panel.set_next(Game.next_types(_state, 3))
+
+
+# Flattens the visible board plus the active piece into a row-major color-index
+# array for BoardView (hidden spawn rows are dropped).
+func _build_board_colors(state: Dictionary) -> Array:
+	var board: Dictionary = state["board"]
+	var hidden := int(board["hidden_rows"])
+	var cols := int(board["width"])
+	var vis_rows := int(board["height"]) - hidden
+	var grid: Array = board["grid"]
+	var flat := []
+	for v in range(vis_rows):
+		for col in range(cols):
+			flat.append(grid[(v + hidden) * cols + col])
+	if state["active"] != null:
+		var index := Piece.type_index(state["active"]["piece_type"])
+		for cell in Game.active_cells(state):
+			var v := int(cell["y"]) - hidden
+			var x := int(cell["x"])
+			if v >= 0 and v < vis_rows and x >= 0 and x < cols:
+				flat[v * cols + x] = index
+	return flat
+
+
+# Ghost landing cells in visible-grid coords, excluding any that coincide with
+# the active piece (so the outline only shows the empty drop target).
+func _build_ghost_cells(state: Dictionary) -> Array:
+	if state["active"] == null:
+		return []
+	var hidden := int(state["board"]["hidden_rows"])
+	var active := {}
+	for cell in Game.active_cells(state):
+		active[str(cell["x"]) + "," + str(cell["y"])] = true
+	var visible := []
+	for cell in Game.ghost_cells(state):
+		var v := int(cell["y"]) - hidden
+		if v >= 0 and not active.has(str(cell["x"]) + "," + str(cell["y"])):
+			visible.append({"x": cell["x"], "y": v})
+	return visible
+
+
+# --- pause ---
+
+
+func _open_pause() -> void:
+	_perform(Game.pause(_state))
+	if _state["status"] != "paused":
+		return
+	_input.release_all()
+	_pause_overlay.configure(
+		"PAUSED",
+		"",
+		[
+			{"id": "resume", "label": "Resume"},
+			{"id": "restart", "label": "Restart"},
+			{"id": "quit", "label": "Dashboard"}
+		]
+	)
+	_pause_overlay.visible = true
+	_pause_overlay.focus_first()
+
+
+func _resume_game() -> void:
+	_pause_overlay.visible = false
+	_accum_ms = 0.0
+	_perform(Game.resume(_state))
+
+
+func _on_pause_selection(id: String) -> void:
+	match id:
+		"resume":
+			_resume_game()
+		"restart":
+			start_game(_player_nickname, _record_score)
+		"quit":
+			_quit_to_dashboard()
+
+
+# --- game over ---
+
+
+func _on_game_over() -> void:
+	_running = false
+	_input.release_all()
+
+	var final_score := int(_state["score"]["score"])
+	# _record_score is the pre-game leaderboard #1; a new record beats it.
+	var is_new_record := final_score > _record_score
+	var display_record := maxi(_record_score, final_score)
+
+	if is_new_record:
+		_pending_record = true
+		var timer := get_tree().create_timer(RECORD_SOUND_DELAY_S)
+		timer.timeout.connect(_on_record_timer)
+
+	var detail := "Score  %d\nLines  %d\nBest   %d" % [
+		final_score, int(_state["score"]["lines"]), display_record
+	]
+	if is_new_record:
+		detail = "NEW RECORD\n" + detail
+	_game_over_overlay.configure(
+		"GAME OVER",
+		detail,
+		[{"id": "again", "label": "Play Again"}, {"id": "dashboard", "label": "Dashboard"}]
+	)
+	_game_over_overlay.visible = true
+	_game_over_overlay.focus_first()
+
+	game_finished.emit({
+		"nickname": _player_nickname,
+		"score": final_score,
+		"lines": int(_state["score"]["lines"]),
+		"is_new_record": is_new_record
+	})
+
+
+func _on_record_timer() -> void:
+	if _pending_record:
+		_audio.play("new_record")
+		_pending_record = false
+
+
+func _on_game_over_selection(id: String) -> void:
+	if id == "again":
+		start_game(_player_nickname, _record_score)
+	else:
+		_quit_to_dashboard()
+
+
+func _quit_to_dashboard() -> void:
+	_running = false
+	# Cancel a pending new-record sound so it cannot fire on the dashboard
+	# after a quick exit from a record-setting game over.
+	_pending_record = false
+	_input.set_enabled(false)
+	_pause_overlay.visible = false
+	_game_over_overlay.visible = false
+	quit_requested.emit()
