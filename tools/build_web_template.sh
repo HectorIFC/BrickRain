@@ -110,36 +110,22 @@ log "Building (this takes 30-60 minutes)"
 )
 
 log "Packaging template"
-BIN="$SRC_DIR/bin"
+# SCons already emits a template zip with exactly the layout Godot expects —
+# the same seven godot.* entries as the official web_nothreads_release.zip.
+# Repackaging it by hand only risks dropping the audio worklets, so just take
+# what the build produced.
+BUILT="$SRC_DIR/bin/godot.web.template_release.wasm32.nothreads.zip"
 ZIP="$OUT_DIR/brickrain_web_nothreads_release.zip"
-rm -f "$ZIP"
 
-# Godot expects the template zip to contain the files named godot.*, exactly as
-# the official web_nothreads_release.zip does.
-STAGE="$WORK/stage"
-rm -rf "$STAGE"
-mkdir -p "$STAGE"
-for f in "$BIN"/godot.web.template_release.wasm32.nothreads*; do
-	[ -e "$f" ] || continue
-	base="$(basename "$f")"
-	case "$base" in
-		*.wasm) cp "$f" "$STAGE/godot.wasm" ;;
-		*.js)   cp "$f" "$STAGE/godot.js" ;;
-		*.html) cp "$f" "$STAGE/godot.html" ;;
-		*.worklet.js) cp "$f" "$STAGE/$base" ;;
-		*) cp "$f" "$STAGE/$base" ;;
-	esac
-done
-# The audio worklets and html shell ship alongside the binary.
-for extra in godot.audio.worklet.js godot.audio.position.worklet.js godot.html godot.service.worker.js godot.offline.html; do
-	[ -f "$BIN/$extra" ] && cp "$BIN/$extra" "$STAGE/$extra"
-done
-
-(cd "$STAGE" && zip -q -r "$ZIP" .)
+if [ ! -f "$BUILT" ]; then
+	echo "expected template zip not found at $BUILT" >&2
+	exit 1
+fi
+cp "$BUILT" "$ZIP"
 
 log "Result"
-ls -la "$STAGE"
+unzip -l "$ZIP"
 printf '\ntemplate: %s\n' "$ZIP"
 printf 'size    : %s\n' "$(du -h "$ZIP" | cut -f1)"
-printf '\nPoint godot/export_presets.cfg at it with:\n'
-printf '  custom_template/release="%s"\n' "$ZIP"
+printf '\nExport with it via:\n  npm run web:export\n'
+printf '(scripts/export-web.js picks it up automatically from build/templates/)\n'
