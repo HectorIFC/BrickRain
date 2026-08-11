@@ -11,10 +11,17 @@ extends Control
 
 signal selection(id: String)
 
+# The overlay ignores activations for a moment after it appears. Space is the
+# hard-drop key AND activates the focused button, so without this a player
+# mid-drop dismisses the game-over screen with their own last keypress and
+# never sees the score.
+const ARM_DELAY_S := 0.45
+
 var _title: Label
 var _detail: Label
 var _buttons_box: VBoxContainer
 var _option_ids: Array[String] = []
+var _armed := false
 
 
 func _ready() -> void:
@@ -48,16 +55,10 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
 
-	_title = Label.new()
-	_title.add_theme_font_size_override("font_size", 34)
-	_title.add_theme_color_override("font_color", GameTheme.accent_color())
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title = UiStyle.make_label("", UiStyle.SIZE_OVERLAY_TITLE, GameTheme.accent_color())
 	column.add_child(_title)
 
-	_detail = Label.new()
-	_detail.add_theme_font_size_override("font_size", 20)
-	_detail.add_theme_color_override("font_color", GameTheme.text_color())
-	_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_detail = UiStyle.make_label("", UiStyle.SIZE_OVERLAY_DETAIL, GameTheme.text_color())
 	column.add_child(_detail)
 
 	_buttons_box = VBoxContainer.new()
@@ -77,13 +78,19 @@ func configure(title: String, detail: String, options: Array) -> void:
 
 	for option in options:
 		var id := str(option["id"])
-		var button := Button.new()
-		button.text = str(option["label"])
-		button.add_theme_font_size_override("font_size", 22)
-		button.custom_minimum_size = Vector2(260, 52)
+		var button := UiStyle.make_button(str(option["label"]))
+		button.custom_minimum_size = Vector2(520, 96)
 		button.pressed.connect(_on_pressed.bind(id))
 		_buttons_box.add_child(button)
 		_option_ids.append(id)
+
+	_arm_after_delay()
+
+
+func _arm_after_delay() -> void:
+	_armed = false
+	await get_tree().create_timer(ARM_DELAY_S).timeout
+	_armed = true
 
 
 # Focuses the first option so keyboard users can act without reaching for the
@@ -94,4 +101,6 @@ func focus_first() -> void:
 
 
 func _on_pressed(id: String) -> void:
+	if not _armed:
+		return
 	selection.emit(id)

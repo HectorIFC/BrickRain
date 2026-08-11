@@ -38,40 +38,28 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 16)
 	center.add_child(column)
 
-	var title := Label.new()
-	title.text = "BRICKRAIN"
-	title.add_theme_font_size_override("font_size", 44)
-	title.add_theme_color_override("font_color", GameTheme.accent_color())
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(title)
-
-	var prompt := Label.new()
-	prompt.text = "Enter your nickname"
-	prompt.add_theme_font_size_override("font_size", 20)
-	prompt.add_theme_color_override("font_color", GameTheme.text_color())
-	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(prompt)
+	column.add_child(UiStyle.make_wordmark("BRICKRAIN"))
+	column.add_child(UiStyle.make_label(
+		"Enter your nickname", UiStyle.SIZE_PROMPT, GameTheme.text_color()
+	))
 
 	_edit = LineEdit.new()
-	_edit.custom_minimum_size = Vector2(320, 56)
+	_edit.custom_minimum_size = Vector2(560, 100)
 	_edit.max_length = 12
 	_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_edit.add_theme_font_size_override("font_size", 24)
+	UiStyle.apply_display(_edit, UiStyle.SIZE_INPUT, GameTheme.text_color())
 	_edit.text_submitted.connect(_on_text_submitted)
 	_edit.text_changed.connect(_on_text_changed)
 	column.add_child(_edit)
 
-	_error = Label.new()
-	_error.add_theme_font_size_override("font_size", 16)
-	_error.add_theme_color_override("font_color", Color("F06060"))
-	_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_error.custom_minimum_size = Vector2(320, 22)
+	# Body font: the rejection reason is a full sentence, and a heavy display
+	# face makes it harder to read, not easier.
+	_error = UiStyle.make_label("", UiStyle.SIZE_ERROR, Color("F06060"), false)
+	_error.custom_minimum_size = Vector2(560, 40)
 	column.add_child(_error)
 
-	_submit = Button.new()
-	_submit.text = "Play"
-	_submit.add_theme_font_size_override("font_size", 24)
-	_submit.custom_minimum_size = Vector2(320, 56)
+	_submit = UiStyle.make_button("Play")
+	_submit.custom_minimum_size = Vector2(560, 100)
 	_submit.pressed.connect(_on_submit_pressed)
 	column.add_child(_submit)
 

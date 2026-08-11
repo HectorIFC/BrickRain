@@ -10,6 +10,11 @@ extends Control
 
 signal game_finished(result: Dictionary)
 signal quit_requested
+# Asks the router to start a fresh run. This screen deliberately does NOT restart
+# itself: the record to beat comes from the leaderboard, which only main.gd owns,
+# so a self-restart would replay with a stale record and score every subsequent
+# run as a new one.
+signal restart_requested
 
 # Delay before new_record.ogg, so it does not overlap game_over.ogg.
 const RECORD_SOUND_DELAY_S := 0.9
@@ -102,10 +107,8 @@ func _build() -> void:
 # On-screen controls for touch: hold has no natural gesture, and pause needs to
 # stay reachable without a keyboard.
 func _make_touch_button(text: String, action_name: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.add_theme_font_size_override("font_size", 20)
-	button.custom_minimum_size = Vector2(72, 56)
+	var button := UiStyle.make_button(text, UiStyle.SIZE_TOUCH_BUTTON)
+	button.custom_minimum_size = Vector2(130, 96)
 	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(_on_action.bind(action_name))
 	return button
@@ -293,7 +296,7 @@ func _on_pause_selection(id: String) -> void:
 		"resume":
 			_resume_game()
 		"restart":
-			start_game(_player_nickname, _record_score)
+			restart_requested.emit()
 		"quit":
 			_quit_to_dashboard()
 
@@ -353,7 +356,7 @@ func _on_game_over_selection(id: String) -> void:
 			_continue_used = true
 			Ads.show_ad()
 		"again":
-			start_game(_player_nickname, _record_score)
+			restart_requested.emit()
 		_:
 			_quit_to_dashboard()
 

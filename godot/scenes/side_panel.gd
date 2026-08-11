@@ -7,13 +7,17 @@ extends PanelContainer
 # Game lays this out as a column beside the well in landscape and as a strip
 # above it in portrait, which is what FR03 needs. Flipping BoxContainer.vertical
 # is all that takes.
+#
+# Each stat is a small caption over a large value rather than one two-line
+# label: the number is what the player glances at mid-game, so it carries the
+# display face at roughly twice the caption's size.
 
 const PREVIEW_COUNT := 3
 
 var _nickname_label: Label
-var _score_label: Label
-var _level_label: Label
-var _lines_label: Label
+var _score_value: Label
+var _level_value: Label
+var _lines_value: Label
 var _hold_preview: PiecePreview
 var _next_previews: Array[PiecePreview] = []
 var _root: BoxContainer
@@ -24,44 +28,57 @@ var _slots_box: BoxContainer
 func _ready() -> void:
 	var style := StyleBoxFlat.new()
 	style.bg_color = GameTheme.panel_color()
-	style.set_content_margin_all(12)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
+	style.set_content_margin_all(16)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
 	add_theme_stylebox_override("panel", style)
 	_build()
 
 
 func _build() -> void:
-	_root = _make_box(true, 12)
+	_root = _make_box(true, 16)
 	add_child(_root)
 
-	_nickname_label = _make_label("", 22, GameTheme.accent_color())
+	_nickname_label = UiStyle.make_label(
+		"", UiStyle.SIZE_STAT_LABEL, GameTheme.accent_color()
+	)
 	_root.add_child(_nickname_label)
 
-	_stats_box = _make_box(true, 6)
+	_stats_box = _make_box(true, 12)
 	_root.add_child(_stats_box)
-	_score_label = _make_label("SCORE\n0", 20, GameTheme.text_color())
-	_level_label = _make_label("LEVEL\n1", 20, GameTheme.text_color())
-	_lines_label = _make_label("LINES\n0", 20, GameTheme.text_color())
-	_stats_box.add_child(_score_label)
-	_stats_box.add_child(_level_label)
-	_stats_box.add_child(_lines_label)
+	_score_value = _add_stat("SCORE", "0")
+	_level_value = _add_stat("LEVEL", "1")
+	_lines_value = _add_stat("LINES", "0")
 
 	# The slot row stays horizontal in both orientations. Stacking four previews
 	# vertically makes the panel taller than a short landscape viewport, which
 	# pushes the well off the bottom of the screen.
-	_slots_box = _make_box(false, 8)
+	_slots_box = _make_box(false, 12)
 	_root.add_child(_slots_box)
-	_slots_box.add_child(_make_label("HOLD", 16, GameTheme.text_color()))
+	_slots_box.add_child(_make_slot_label("HOLD"))
 	_hold_preview = _make_preview()
 	_slots_box.add_child(_hold_preview)
-	_slots_box.add_child(_make_label("NEXT", 16, GameTheme.text_color()))
+	_slots_box.add_child(_make_slot_label("NEXT"))
 	for _i in range(PREVIEW_COUNT):
 		var preview := _make_preview()
 		_slots_box.add_child(preview)
 		_next_previews.append(preview)
+
+
+# Caption above value; returns the value label so callers can update it.
+func _add_stat(caption: String, initial: String) -> Label:
+	var group := _make_box(true, 0)
+	group.add_child(_make_slot_label(caption))
+	var value := UiStyle.make_label(initial, UiStyle.SIZE_STAT_VALUE, GameTheme.text_color())
+	group.add_child(value)
+	_stats_box.add_child(group)
+	return value
+
+
+func _make_slot_label(text: String) -> Label:
+	return UiStyle.make_label(text, UiStyle.SIZE_SLOT_LABEL, GameTheme.text_color())
 
 
 func _make_box(vertical: bool, separation: int) -> BoxContainer:
@@ -71,18 +88,9 @@ func _make_box(vertical: bool, separation: int) -> BoxContainer:
 	return box
 
 
-func _make_label(text: String, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	return label
-
-
 func _make_preview() -> PiecePreview:
 	var preview := PiecePreview.new()
-	preview.custom_minimum_size = Vector2(60, 44)
+	preview.custom_minimum_size = Vector2(96, 72)
 	return preview
 
 
@@ -101,9 +109,9 @@ func set_nickname(value: String) -> void:
 
 
 func set_stats(score: int, level: int, lines: int) -> void:
-	_score_label.text = "SCORE\n" + str(score)
-	_level_label.text = "LEVEL\n" + str(level)
-	_lines_label.text = "LINES\n" + str(lines)
+	_score_value.text = str(score)
+	_level_value.text = str(level)
+	_lines_value.text = str(lines)
 
 
 func set_hold(piece_type: String) -> void:

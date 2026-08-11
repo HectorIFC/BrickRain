@@ -30,6 +30,7 @@ func _ready() -> void:
 	_game = GameScreen.new()
 	_game.game_finished.connect(_on_game_finished)
 	_game.quit_requested.connect(_show_dashboard)
+	_game.restart_requested.connect(_start_run)
 	add_child(_game)
 
 	# A known nickname skips straight to the dashboard on a returning visit.
@@ -54,7 +55,7 @@ func _on_cloud_data_loaded(ok: bool, data: Dictionary, _code: String) -> void:
 	_leaderboard = Storage.merge_leaderboards(_leaderboard, cloud)
 	Storage.save_leaderboard(_leaderboard)
 	if _dashboard.visible:
-		_dashboard.refresh(_leaderboard)
+		_dashboard.refresh(_leaderboard, _nickname)
 
 
 func _show_only(screen: Control) -> void:
@@ -72,7 +73,7 @@ func _show_nickname_entry() -> void:
 
 func _show_dashboard() -> void:
 	_show_only(_dashboard)
-	_dashboard.refresh(_leaderboard)
+	_dashboard.refresh(_leaderboard, _nickname)
 
 
 func _on_nickname_submitted(nickname: String) -> void:
@@ -82,8 +83,15 @@ func _on_nickname_submitted(nickname: String) -> void:
 
 
 func _on_play_requested() -> void:
+	_start_run()
+
+
+# The single entry point for starting a run, whether from the dashboard or from
+# a Restart / Play Again inside the game. The record to beat is recomputed from
+# the leaderboard every time: it is the pre-game #1, not a personal best, and
+# not a value cached when the screen was first opened.
+func _start_run() -> void:
 	_show_only(_game)
-	# The record to beat is the pre-game leaderboard #1, not a personal best.
 	_game.start_game(_nickname, Leaderboard.top_score(_leaderboard))
 
 

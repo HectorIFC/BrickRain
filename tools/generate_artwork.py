@@ -12,12 +12,18 @@ Outputs (Roku manifest requirements):
   splash_sd.png       720x480  (splash_screen_sd)
 """
 
+import argparse
 import random
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "assets" / "images"
+ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = ROOT / "assets" / "images"
+# The Godot web build gets its own directory. Godot writes a .import sidecar
+# next to every file it imports, and bsconfig.json globs assets/**/* straight
+# into the Roku channel zip, so the two targets must never share a directory.
+GODOT_OUTPUT_DIR = ROOT / "godot" / "assets" / "images"
 
 # Classic falling-blocks palette (one color per tetromino type)
 PALETTE = [
@@ -122,7 +128,7 @@ def compose(width: int, height: int, scale: int, rain_blocks: int, rain_size: in
     return image
 
 
-def main() -> None:
+def build_roku() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     targets = {
         "icon_focus_fhd.png": (540, 405, 11, 8, 18),
@@ -135,6 +141,44 @@ def main() -> None:
     for name, (width, height, scale, rain, rain_size) in targets.items():
         compose(width, height, scale, rain, rain_size).save(OUTPUT_DIR / name)
         print(f"  {name} ({width}x{height})")
+
+
+def build_godot() -> None:
+    """Boot splash and app icon for the Godot web build.
+
+    Without these Godot shows its own logo while the engine loads, which is the
+    first thing a Facebook Instant Games player sees.
+    """
+    GODOT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    targets = {
+        # Shown centred on boot_splash/bg_color while the engine loads. The
+        # scale leaves margin around the wordmark; the rain is kept sparse so
+        # it does not read as noise behind the letters.
+        "boot_splash.png": (900, 500, 21, 9, 26),
+        # Square app icon; also the source for the web favicons.
+        "icon.png": (512, 512, 14, 6, 20),
+    }
+    for name, (width, height, scale, rain, rain_size) in targets.items():
+        compose(width, height, scale, rain, rain_size).save(GODOT_OUTPUT_DIR / name)
+        print(f"  {name} ({width}x{height})")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--target",
+        choices=("roku", "godot", "all"),
+        default="roku",
+        help="which build to generate artwork for (default: roku)",
+    )
+    args = parser.parse_args()
+
+    if args.target in ("roku", "all"):
+        print("Roku channel artwork:")
+        build_roku()
+    if args.target in ("godot", "all"):
+        print("Godot web artwork:")
+        build_godot()
 
 
 if __name__ == "__main__":

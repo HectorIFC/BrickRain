@@ -11,6 +11,7 @@ extends Control
 signal play_requested
 signal change_nickname_requested
 
+var _player_label: Label
 var _record_label: Label
 var _list: VBoxContainer
 var _empty_label: Label
@@ -34,17 +35,15 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 14)
 	margin.add_child(column)
 
-	var title := Label.new()
-	title.text = "BRICKRAIN"
-	title.add_theme_font_size_override("font_size", 40)
-	title.add_theme_color_override("font_color", GameTheme.accent_color())
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(title)
+	column.add_child(UiStyle.make_wordmark("BRICKRAIN", UiStyle.SIZE_WORDMARK_SMALL))
 
-	_record_label = Label.new()
-	_record_label.add_theme_font_size_override("font_size", 22)
-	_record_label.add_theme_color_override("font_color", GameTheme.text_color())
-	_record_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Without this the current nickname is invisible here — the only names on
+	# screen are historical leaderboard rows, which keep the name used at the
+	# time, so changing it looks like it did nothing.
+	_player_label = UiStyle.make_label("", UiStyle.SIZE_STAT_LABEL, GameTheme.accent_color())
+	column.add_child(_player_label)
+
+	_record_label = UiStyle.make_label("", UiStyle.SIZE_STAT_LABEL, GameTheme.text_color())
 	column.add_child(_record_label)
 
 	# The list scrolls: the leaderboard holds up to 50 entries.
@@ -58,11 +57,9 @@ func _ready() -> void:
 	_list.add_theme_constant_override("separation", 4)
 	scroll.add_child(_list)
 
-	_empty_label = Label.new()
-	_empty_label.text = "No games yet — play one."
-	_empty_label.add_theme_font_size_override("font_size", 18)
-	_empty_label.add_theme_color_override("font_color", GameTheme.text_color())
-	_empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_empty_label = UiStyle.make_label(
+		"No games yet — play one.", UiStyle.SIZE_ROW, GameTheme.text_color(), false
+	)
 	column.add_child(_empty_label)
 
 	var buttons := HBoxContainer.new()
@@ -70,27 +67,25 @@ func _ready() -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_child(buttons)
 
-	var play := Button.new()
-	play.text = "Play"
-	play.add_theme_font_size_override("font_size", 24)
-	play.custom_minimum_size = Vector2(200, 56)
+	var play := UiStyle.make_button("Play")
+	play.custom_minimum_size = Vector2(340, 96)
 	play.pressed.connect(func(): play_requested.emit())
 	buttons.add_child(play)
 
-	var change := Button.new()
-	change.text = "Change Nickname"
-	change.add_theme_font_size_override("font_size", 18)
-	change.custom_minimum_size = Vector2(200, 56)
+	var change := UiStyle.make_button("Nickname", UiStyle.SIZE_BUTTON_SMALL)
+	change.custom_minimum_size = Vector2(300, 96)
 	change.pressed.connect(func(): change_nickname_requested.emit())
 	buttons.add_child(change)
 
 
-func refresh(leaderboard_state: Dictionary) -> void:
+func refresh(leaderboard_state: Dictionary, nickname: String = "") -> void:
 	for child in _list.get_children():
 		child.queue_free()
 
 	var entries: Array = leaderboard_state["entries"]
 	_empty_label.visible = entries.is_empty()
+	_player_label.text = "Playing as %s" % nickname
+	_player_label.visible = nickname != ""
 	_record_label.text = "Record to beat: %d" % Leaderboard.top_score(leaderboard_state)
 
 	for i in range(entries.size()):
@@ -112,20 +107,25 @@ func _make_row(rank: int, entry: Dictionary) -> Control:
 	box.add_theme_constant_override("separation", 12)
 	row.add_child(box)
 
-	box.add_child(_cell("%d." % rank, 60, HORIZONTAL_ALIGNMENT_RIGHT, GameTheme.accent_color()))
+	# Rank and score carry the display face so the numbers read at a glance;
+	# nickname and date stay on the body font, which is legible at this size.
+	box.add_child(_cell("%d." % rank, 90, HORIZONTAL_ALIGNMENT_RIGHT, GameTheme.accent_color(), true))
 	var name_cell := _cell(str(entry["nickname"]), 0, HORIZONTAL_ALIGNMENT_LEFT, GameTheme.text_color())
 	name_cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(name_cell)
-	box.add_child(_cell(str(entry["date"]), 120, HORIZONTAL_ALIGNMENT_CENTER, GameTheme.text_color()))
-	box.add_child(_cell(str(entry["score"]), 100, HORIZONTAL_ALIGNMENT_RIGHT, GameTheme.text_color()))
+	box.add_child(_cell(str(entry["date"]), 210, HORIZONTAL_ALIGNMENT_CENTER, GameTheme.text_color()))
+	box.add_child(_cell(str(entry["score"]), 170, HORIZONTAL_ALIGNMENT_RIGHT, GameTheme.text_color(), true))
 	return row
 
 
-func _cell(text: String, min_width: int, alignment: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", 18)
-	label.add_theme_color_override("font_color", color)
+func _cell(
+	text: String,
+	min_width: int,
+	alignment: int,
+	color: Color,
+	display: bool = false
+) -> Label:
+	var label := UiStyle.make_label(text, UiStyle.SIZE_ROW, color, display)
 	label.horizontal_alignment = alignment
 	label.custom_minimum_size = Vector2(min_width, 0)
 	return label

@@ -68,9 +68,15 @@ func _check_responsive_layout() -> void:
 	await get_tree().process_frame
 	game.start_game("Tester", 0)
 
-	await _assert_orientation(game, Vector2(460, 900), true, "portrait 460x900")
-	await _assert_orientation(game, Vector2(900, 460), false, "landscape 900x460")
+	# Sizes are in the PROJECT design space, not physical pixels. The project
+	# stretches canvas_items with aspect=expand against a 1080x1920 base, so the
+	# viewport is never smaller than that on either axis — whichever dimension
+	# has surplus grows. A physical 900x460 window becomes ~3750x1920 here.
+	# Driving raw Control sizes with physical numbers measures a layout that
+	# cannot occur and makes the panel look far wider than it really is.
 	await _assert_orientation(game, Vector2(1080, 1920), true, "portrait 1080x1920")
+	await _assert_orientation(game, Vector2(1080, 2400), true, "portrait tall 1080x2400")
+	await _assert_orientation(game, Vector2(3750, 1920), false, "landscape 3750x1920")
 	game.queue_free()
 
 
