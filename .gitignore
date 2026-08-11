@@ -14,6 +14,7 @@ staging/
 *.pkg
 *.key
 *.pem
+*.txt
 
 # --- Test & coverage output ---
 coverage/
@@ -41,3 +42,10 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# --- Godot (web implementation) ---
+# The web export writes to build/ (already ignored above) rather than inside
+# godot/, so the previous export's assets can never be re-imported into the
+# project and packed into the next build.
+godot/.godot/
+godot/android/
