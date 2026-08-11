@@ -1,0 +1,94 @@
+name: Godot CI (web)
+
+# Tests, exports and packages the Godot web implementation for Facebook
+# Instant Games.
+#
+# Deliberately a sibling of ci.yml rather than a job inside it: the Roku
+# channel's pipeline is untouched, and a failure here can never block or slow
+# the channel build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  godot-web:
+    runs-on: ubuntu-latest
+    env:
+      # Must match config/features in godot/project.godot.
+      GODOT_VERSION: "4.7.1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
+
+      # The export templates are ~1.3 GB, so downloading them on every run
+      # would dominate the job. Keyed on the version, so a Godot bump fetches
+      # them once and then reuses them.
+      - name: Cache Godot export templates
+        id: templates-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-export-templates-${{ env.GODOT_VERSION }}
+
+      - name: Install Godot
+        env:
+          BASE: https://github.com/godotengine/godot/releases/download
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/godot.zip \
+            "${BASE}/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          sudo install -m 755 "/tmp/godot-bin/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          godot --version
+
+      - name: Install export templates
+        if: steps.templates-cache.outputs.cache-hit != 'true'
+        env:
+          BASE: https://github.com/godotengine/godot/releases/download
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/templates.tpz \
+            "${BASE}/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          mv /tmp/templates/templates "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+
+      # Populates .godot/ so the suites below can resolve every resource.
+      - name: Import project
+        run: godot --headless --path godot --import
+
+      # Both runners exit non-zero on failure, so a red suite fails the job.
+      - name: Run logic tests (44 cases, incl. the seed-23 golden values)
+        run: godot --headless --path godot --script res://tests/run_tests.gd
+
+      # Runs as a scene, not --script: autoloads are not registered under
+      # --script and the game scene would fail to compile.
+      - name: Run layout smoke test
+        run: godot --headless --path godot res://tests/SmokeLayout.tscn
+
+      - name: Export web build
+        run: |
+          set -euo pipefail
+          mkdir -p build/web
+          godot --headless --path godot --export-release "Web" ../build/web/index.html
+
+      # Verifies index.html and fbapp-config.json land at the archive root,
+      # which is what the Instant Games uploader requires.
+      - name: Package Instant Games bundle
+        run: node scripts/package-web.js
+
+      # Deploy is intentionally manual for now. Meta publishes no first-party
+      # action for bundle upload, and automating it means a long-lived Graph
+      # API token in repo secrets. Until the app exists and that token flow is
+      # proven, every commit produces a reviewable ZIP to upload by hand.
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: brickrain-web-${{ github.sha }}
+          path: out/brickrain-web.zip
+          if-no-files-found: error
+          retention-days: 14

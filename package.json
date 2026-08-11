@@ -9,7 +9,13 @@
     "test": "npm run test:logic",
     "test:logic": "node scripts/run-headless-tests.js",
     "test:device": "node scripts/run-device-tests.js",
-    "deploy": "npm run build && node scripts/deploy.js"
+    "deploy": "npm run build && node scripts/deploy.js",
+    "web:import": "godot --headless --path godot --import",
+    "web:test": "godot --headless --path godot --script res://tests/run_tests.gd",
+    "web:test:layout": "godot --headless --path godot res://tests/SmokeLayout.tscn",
+    "web:export": "mkdir -p build/web && godot --headless --path godot --export-release \"Web\" ../build/web/index.html",
+    "web:package": "node scripts/package-web.js",
+    "web:build": "npm run web:export && npm run web:package"
   },
   "repository": {
     "type": "git",
