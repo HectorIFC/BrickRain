@@ -103,6 +103,32 @@ BrickRain is a **pure functional core** plus a thin **imperative shell**:
 - `tools/` — Python generators for the original artwork and chiptune audio
   (`pip install -r tools/requirements.txt`, then run `python tools/generate_*.py`).
 
+### The web implementation
+
+`godot/` holds a second, independent implementation in **Godot 4 / GDScript**, targeting
+**Facebook Instant Games**. It is translated from the BrightScript core rather than
+reinvented, and the two build, test and release completely separately — the Roku channel is
+unaffected by anything under `godot/`.
+
+- `godot/core/` — a 1:1 port of `source/logic/`, pure `class_name` + `static func` modules
+  with no engine imports.
+- `godot/scenes/` — the imperative shell (immediate-mode `_draw()` board, responsive
+  portrait/landscape layout, touch + keyboard input).
+- `godot/platform/` — the Instant Games SDK bridge, cloud save and rewarded ads, each
+  degrading to a defined "unavailable" result off-platform.
+
+Both cores are held to the **same golden values** — a scripted game on seed 23 must produce
+1538 points / 5 lines / 38 pieces in both suites. See
+[CONTRIBUTING.md](CONTRIBUTING.md#two-implementations-one-set-of-game-rules).
+
+```bash
+npm run web:test          # the ported logic suite (same 44 cases)
+npm run web:test:layout   # layout/responsiveness smoke test
+npm run web:build         # export + package -> out/brickrain-web.zip
+```
+
+Publishing is documented in [docs/INSTANT_GAMES.md](docs/INSTANT_GAMES.md).
+
 See [brickrain_prd.md](brickrain_prd.md) for the full product/architecture spec.
 
 ## Versioning & releases
