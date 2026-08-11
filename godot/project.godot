@@ -24,6 +24,7 @@ boot_splash/use_filter=true
 ; FBBridge must come first: Ads connects to its signals in _ready.
 FBBridge="*res://platform/fb_bridge.gd"
 Ads="*res://platform/ads.gd"
+Music="*res://platform/music.gd"
 
 [display]
 

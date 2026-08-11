@@ -102,6 +102,10 @@ BrickRain is a **pure functional core** plus a thin **imperative shell**:
 - `source/registryAdapter.bs` — the only registry touch-point (persistence).
 - `tools/` — Python generators for the original artwork and chiptune audio
   (`pip install -r tools/requirements.txt`, then run `python tools/generate_*.py`).
+  Everything audible and visible is synthesised here rather than sourced: nine
+  sound effects, the wordmark and splashes, and the web build's 128 BPM music
+  loop (`generate_music.py`). Nothing in the game is a downloaded asset, which
+  is what keeps the licence claim below true.
 
 ### The web implementation
 

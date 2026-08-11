@@ -13,6 +13,7 @@ signal change_nickname_requested
 
 var _player_label: Label
 var _record_label: Label
+var _mute_button: Button
 var _list: VBoxContainer
 var _empty_label: Label
 
@@ -76,6 +77,21 @@ func _ready() -> void:
 	change.custom_minimum_size = Vector2(300, 96)
 	change.pressed.connect(func(): change_nickname_requested.emit())
 	buttons.add_child(change)
+
+	_mute_button = UiStyle.make_button("", UiStyle.SIZE_BUTTON_SMALL)
+	_mute_button.custom_minimum_size = Vector2(240, 96)
+	_mute_button.pressed.connect(_on_mute_pressed)
+	buttons.add_child(_mute_button)
+	_refresh_mute_button()
+
+
+func _on_mute_pressed() -> void:
+	Music.toggle_muted()
+	_refresh_mute_button()
+
+
+func _refresh_mute_button() -> void:
+	_mute_button.text = "Muted" if Music.is_muted() else "Sound"
 
 
 func refresh(leaderboard_state: Dictionary, nickname: String = "") -> void:

@@ -360,6 +360,70 @@ window.BrickRainFB = (function () {
 }());
 		</script>
 
+		<script>
+/*
+ * Music loader.
+ *
+ * The track is fetched here rather than with Godot's HTTPRequest, which does
+ * not reliably issue the request on the web export. Fetching in JS and handing
+ * the bytes over as base64 uses the same shim pattern as BrickRainFB above and
+ * is straightforward to inspect from the console.
+ *
+ * The track deliberately lives outside index.pck — everything in there is
+ * downloaded before the first frame, so packing the music would delay the boot
+ * for every player. It is fetched lazily, and the game runs fine without it.
+ */
+window.BrickRainMusic = (function () {
+	const state = { status: 'idle', data: null };
+
+	function toBase64(buffer) {
+		const bytes = new Uint8Array(buffer);
+		const CHUNK = 0x8000;
+		let binary = '';
+		for (let i = 0; i < bytes.length; i += CHUNK) {
+			binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+		}
+		return btoa(binary);
+	}
+
+	return {
+		// Hands the track back through a callback rather than exposing a
+		// pollable flag: the same shape BrickRainFB uses, and it does not
+		// depend on the caller getting a per-frame tick.
+		//
+		// The URL is resolved against the page so the bundle works from
+		// whatever path Facebook serves it under. cb receives a base64 string,
+		// or an empty string on any failure.
+		load: function (file, cb) {
+			if (state.status !== 'idle') {
+				return;
+			}
+			state.status = 'loading';
+			const url = window.location.pathname.replace(/[^/]*$/, '') + file;
+			fetch(url).then(function (response) {
+				if (!response.ok) {
+					throw new Error('HTTP ' + response.status);
+				}
+				return response.arrayBuffer();
+			}).then(function (buffer) {
+				state.status = 'ready';
+				// Handed straight over and never retained, so the browser is
+				// not left holding a second copy of the track forever.
+				cb(toBase64(buffer));
+			}).catch(function (err) {
+				console.warn('[BrickRainMusic] could not load ' + file, err);
+				state.status = 'failed';
+				cb('');
+			});
+		},
+
+		status: function () {
+			return state.status;
+		},
+	};
+}());
+		</script>
+
 		<script src="$GODOT_URL"></script>
 		<script>
 const GODOT_CONFIG = $GODOT_CONFIG;

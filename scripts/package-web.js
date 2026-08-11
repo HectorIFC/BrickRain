@@ -18,11 +18,23 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const WEB_DIR = path.join(ROOT, 'build', 'web');
 const CONFIG_SRC = path.join(ROOT, 'godot', 'fbapp-config.json');
+// The music is deliberately NOT in the pck: everything in res:// is downloaded
+// in full before the first frame, so packing it would delay the boot for every
+// player. It is excluded from the export and copied in here instead, then
+// fetched over HTTP at runtime by platform/music.gd.
+const MUSIC_SRC = path.join(ROOT, 'godot', 'music', 'theme.ogg');
 const OUT_DIR = path.join(ROOT, 'out');
 const ZIP_PATH = path.join(OUT_DIR, 'brickrain-web.zip');
 
 // Entries that must sit at the archive root for the bundle to boot.
-const REQUIRED_ROOT_ENTRIES = ['index.html', 'index.js', 'index.wasm', 'index.pck', 'fbapp-config.json'];
+const REQUIRED_ROOT_ENTRIES = [
+  'index.html',
+  'index.js',
+  'index.wasm',
+  'index.pck',
+  'fbapp-config.json',
+  'theme.ogg',
+];
 
 function fail(message) {
   console.error(`package-web: ${message}`);
@@ -39,10 +51,14 @@ if (!fs.existsSync(path.join(WEB_DIR, 'index.html'))) {
 if (!fs.existsSync(CONFIG_SRC)) {
   fail(`missing ${path.relative(ROOT, CONFIG_SRC)}.`);
 }
+if (!fs.existsSync(MUSIC_SRC)) {
+  fail(`missing ${path.relative(ROOT, MUSIC_SRC)}; run python3 tools/generate_music.py.`);
+}
 
-// fbapp-config.json lives with the Godot project (it is source, not build
-// output) and is copied in at packaging time.
+// These live with the Godot project (they are source, not build output) and are
+// copied in at packaging time.
 fs.copyFileSync(CONFIG_SRC, path.join(WEB_DIR, 'fbapp-config.json'));
+fs.copyFileSync(MUSIC_SRC, path.join(WEB_DIR, 'theme.ogg'));
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.rmSync(ZIP_PATH, { force: true });

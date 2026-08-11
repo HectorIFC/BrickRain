@@ -30,10 +30,15 @@ var _portrait := true
 # A rewarded continue is offered at most once per game, so the run still ends.
 var _continue_used := false
 
+# A stack this many rows tall (of 20 visible) switches the music to its tense
+# variant — pitched up with the low-pass closed in, not a second track.
+const TENSE_STACK_ROWS := 14
+
 var _root_box: BoxContainer
 var _board_view: BoardView
 var _side_panel: SidePanel
 var _button_bar: BoxContainer
+var _mute_button: Button
 var _input: InputRouter
 var _audio: GameAudio
 var _pause_overlay: MenuOverlay
@@ -79,6 +84,12 @@ func _build() -> void:
 	_root_box.add_child(_button_bar)
 	_button_bar.add_child(_make_touch_button("HOLD", "hold"))
 	_button_bar.add_child(_make_touch_button("II", "pause"))
+	_mute_button = UiStyle.make_button("", UiStyle.SIZE_TOUCH_BUTTON)
+	_mute_button.custom_minimum_size = Vector2(190, 96)
+	_mute_button.focus_mode = Control.FOCUS_NONE
+	_mute_button.pressed.connect(_on_mute_pressed)
+	_button_bar.add_child(_mute_button)
+	_refresh_mute_button()
 
 	_input = InputRouter.new()
 	_input.action.connect(_on_action)
@@ -153,6 +164,10 @@ func start_game(nickname: String, record_score: int) -> void:
 	# Warm an ad now so the continue offer is instant at game over, which is
 	# the only place it is shown.
 	Ads.preload_ad()
+	# First call reaches here from the dashboard Play button, i.e. from a real
+	# user gesture, which is what the browser autoplay policy requires.
+	Music.set_tense(false)
+	Music.play()
 	_render()
 
 
@@ -223,6 +238,32 @@ func _render() -> void:
 	_side_panel.set_stats(int(_state["score"]["score"]), level, int(_state["score"]["lines"]))
 	_side_panel.set_hold(str(_state["hold"]))
 	_side_panel.set_next(Game.next_types(_state, 3))
+	Music.set_tense(_stack_rows(_state) >= TENSE_STACK_ROWS)
+
+
+# How many rows tall the settled stack is. Board.stack_in_hidden_rows() exists
+# but only trips once the well has already overflowed, which is far too late to
+# be useful as a tension cue. Computed here in the shell: it is a presentation
+# decision, not a game rule, so it stays out of the core.
+func _stack_rows(state: Dictionary) -> int:
+	var board: Dictionary = state["board"]
+	var width := int(board["width"])
+	var height := int(board["height"])
+	var grid: Array = board["grid"]
+	for y in range(int(board["hidden_rows"]), height):
+		for x in range(width):
+			if int(grid[y * width + x]) != 0:
+				return height - y
+	return 0
+
+
+func _on_mute_pressed() -> void:
+	Music.toggle_muted()
+	_refresh_mute_button()
+
+
+func _refresh_mute_button() -> void:
+	_mute_button.text = "MUTED" if Music.is_muted() else "SOUND"
 
 
 # Flattens the visible board plus the active piece into a row-major color-index
@@ -307,6 +348,8 @@ func _on_pause_selection(id: String) -> void:
 func _on_game_over() -> void:
 	_running = false
 	_input.release_all()
+	# Silence the music so the descending game-over cue is heard cleanly.
+	Music.stop()
 
 	var final_score := int(_state["score"]["score"])
 	# _record_score is the pre-game leaderboard #1; a new record beats it.

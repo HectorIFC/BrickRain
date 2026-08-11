@@ -14,6 +14,7 @@ extends RefCounted
 
 const SAVE_PATH := "user://leaderboard.json"
 const NICKNAME_PATH := "user://nickname.txt"
+const MUTED_PATH := "user://muted.txt"
 
 
 static func load_leaderboard() -> Dictionary:
@@ -57,6 +58,27 @@ static func save_nickname(nickname: String) -> void:
 	if file == null:
 		return
 	file.store_string(nickname)
+	file.close()
+
+
+# An Instant Games player is often somewhere public; without a remembered mute
+# they close the game rather than hunt for a volume control.
+static func load_muted() -> bool:
+	if not FileAccess.file_exists(MUTED_PATH):
+		return false
+	var file := FileAccess.open(MUTED_PATH, FileAccess.READ)
+	if file == null:
+		return false
+	var text := file.get_as_text().strip_edges()
+	file.close()
+	return text == "1"
+
+
+static func save_muted(muted: bool) -> void:
+	var file := FileAccess.open(MUTED_PATH, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string("1" if muted else "0")
 	file.close()
 
 

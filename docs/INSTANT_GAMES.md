@@ -16,9 +16,14 @@ npm run web:test:layout   # screens fill the viewport; portrait/landscape flip
 npm run web:build         # export + package -> out/brickrain-web.zip
 ```
 
-`npm run web:build` verifies that `index.html` and `fbapp-config.json` land at the **root**
-of the archive. A nested layout is accepted by the uploader and then fails to boot, so it
-is worth failing the build on.
+`npm run web:build` verifies that `index.html`, `fbapp-config.json` and `theme.ogg` land at
+the **root** of the archive. A nested layout is accepted by the uploader and then fails to
+boot, so it is worth failing the build on.
+
+If `godot/music/theme.ogg` is missing, regenerate it with
+`python3 tools/generate_music.py`. It is deliberately kept out of `index.pck` — everything
+in the pck is downloaded before the first frame, so packing a 241 KB track would delay the
+boot for every player. It is fetched lazily instead, and the game runs fine without it.
 
 CI (`.github/workflows/godot-ci.yml`) runs the same steps on every push and attaches the
 ZIP as a workflow artifact, so there is always a reviewable bundle to download.
