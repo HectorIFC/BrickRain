@@ -60,6 +60,39 @@ static func save_nickname(nickname: String) -> void:
 	file.close()
 
 
+# Key under which the leaderboard blob lives in FBInstant player data.
+const CLOUD_KEY := "leaderboard"
+
+
+# Combines the local board with one restored from the cloud.
+#
+# This lives here rather than in core/leaderboard.gd on purpose: cloud sync is
+# a web-platform concern, and the Roku channel has no equivalent. Keeping it
+# out of the core is what stops the two implementations drifting apart.
+#
+# Entries are per-game, so the same nickname legitimately repeats; the dedup
+# key is the whole row. add_entry does the sorting, capping and validation, so
+# a corrupted cloud row cannot poison the ranking.
+static func merge_leaderboards(local_state: Dictionary, cloud_state: Dictionary) -> Dictionary:
+	var merged := local_state
+	var seen := {}
+	for entry in local_state["entries"]:
+		seen[_entry_key(entry)] = true
+	for entry in cloud_state["entries"]:
+		var key := _entry_key(entry)
+		if seen.has(key):
+			continue
+		seen[key] = true
+		merged = Leaderboard.add_entry(
+			merged, str(entry["nickname"]), int(entry["score"]), str(entry["date"])
+		)
+	return merged
+
+
+static func _entry_key(entry: Dictionary) -> String:
+	return "%s|%s|%s" % [str(entry["nickname"]), str(entry["score"]), str(entry["date"])]
+
+
 # Today's date as the dd/mm/yyyy string the leaderboard expects.
 static func today_text() -> String:
 	var now := Time.get_datetime_dict_from_system()

@@ -22,6 +22,8 @@ var _pending_record := false
 var _running := false
 var _accum_ms := 0.0
 var _portrait := true
+# A rewarded continue is offered at most once per game, so the run still ends.
+var _continue_used := false
 
 var _root_box: BoxContainer
 var _board_view: BoardView
@@ -93,6 +95,9 @@ func _build() -> void:
 	_game_over_overlay.selection.connect(_on_game_over_selection)
 	add_child(_game_over_overlay)
 
+	Ads.reward_granted.connect(_on_reward_granted)
+	Ads.reward_failed.connect(_on_reward_failed)
+
 
 # On-screen controls for touch: hold has no natural gesture, and pause needs to
 # stay reachable without a keyboard.
@@ -136,11 +141,15 @@ func start_game(nickname: String, record_score: int) -> void:
 	_pending_record = false
 	_last_level = -1
 	_accum_ms = 0.0
+	_continue_used = false
 	_state = Game.create()
 	_pause_overlay.visible = false
 	_game_over_overlay.visible = false
 	_running = true
 	_input.set_enabled(true)
+	# Warm an ad now so the continue offer is instant at game over, which is
+	# the only place it is shown.
+	Ads.preload_ad()
 	_render()
 
 
@@ -311,11 +320,16 @@ func _on_game_over() -> void:
 	]
 	if is_new_record:
 		detail = "NEW RECORD\n" + detail
-	_game_over_overlay.configure(
-		"GAME OVER",
-		detail,
-		[{"id": "again", "label": "Play Again"}, {"id": "dashboard", "label": "Dashboard"}]
-	)
+
+	# The continue offer only appears when an ad is actually banked, so the
+	# player is never shown a button that then fails to deliver.
+	var options := []
+	if not _continue_used and Ads.is_offer_available():
+		options.append({"id": "continue", "label": "Continue (watch ad)"})
+	options.append({"id": "again", "label": "Play Again"})
+	options.append({"id": "dashboard", "label": "Dashboard"})
+
+	_game_over_overlay.configure("GAME OVER", detail, options)
 	_game_over_overlay.visible = true
 	_game_over_overlay.focus_first()
 
@@ -334,10 +348,54 @@ func _on_record_timer() -> void:
 
 
 func _on_game_over_selection(id: String) -> void:
-	if id == "again":
-		start_game(_player_nickname, _record_score)
-	else:
-		_quit_to_dashboard()
+	match id:
+		"continue":
+			_continue_used = true
+			Ads.show_ad()
+		"again":
+			start_game(_player_nickname, _record_score)
+		_:
+			_quit_to_dashboard()
+
+
+# Only a completed view reaches here; a dismissed ad goes to _on_reward_failed.
+# The continue clears the well but keeps the score, level and line count, so
+# the run carries on rather than restarting.
+func _on_reward_granted() -> void:
+	if not _game_over_overlay.visible:
+		return
+	var earned: Dictionary = _state["score"]
+	var resumed := Game.create()
+	resumed["score"] = earned
+	_state = resumed
+	_last_level = -1
+	_accum_ms = 0.0
+	_pending_record = false
+	_game_over_overlay.visible = false
+	_running = true
+	_input.set_enabled(true)
+	_render()
+
+
+func _on_reward_failed(code: String) -> void:
+	if not _game_over_overlay.visible:
+		return
+	# Dismissed or unavailable: the run stays over. Re-render the overlay
+	# without the continue option so it cannot be attempted again.
+	_on_game_over_overlay_refresh(code)
+
+
+func _on_game_over_overlay_refresh(code: String) -> void:
+	var note := "Ad not completed — no continue."
+	if code == "ADS_NOT_LOADED" or code == "UNAVAILABLE":
+		note = "No ad available right now."
+	var final_score := int(_state["score"]["score"])
+	_game_over_overlay.configure(
+		"GAME OVER",
+		"%s\n\nScore  %d" % [note, final_score],
+		[{"id": "again", "label": "Play Again"}, {"id": "dashboard", "label": "Dashboard"}]
+	)
+	_game_over_overlay.focus_first()
 
 
 func _quit_to_dashboard() -> void:

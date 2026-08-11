@@ -1,0 +1,10 @@
+{
+  "instant_games": {
+    "platform_version": "RICH_GAMEPLAY",
+    "navigation_menu_version": "NEW_GAME_HEADER",
+    "orientation": "PORTRAIT",
+    "play_turn": {
+      "start_immediately": true
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "_comment": "Facebook dashboard values. Placement ids are created in App Dashboard -> Instant Games -> Monetization and pasted here at Phase 6; they are deliberately not compiled into source. An empty rewarded_placement_id disables the rewarded-ad offer entirely rather than erroring.",
+  "rewarded_placement_id": "",
+  "leaderboard_name": "brickrain_high_scores"
+}

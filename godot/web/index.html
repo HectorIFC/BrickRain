@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>$GODOT_PROJECT_NAME</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: $GODOT_SPLASH_COLOR;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-splash.show-image--false {
+	display: none;
+}
+
+#status-splash.fullsize--true {
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
+}
+
+#status-splash.use-filter--false {
+	image-rendering: pixelated;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+		</style>
+		<!--
+			Facebook Instant Games SDK. Version-pinned rather than "latest":
+			every game created after 2025-08-01 must run v8+ under Network
+			Enabled Zero Permissions, and a silent major bump would change the
+			available API surface underneath us.
+
+			No Subresource Integrity hash here, deliberately. Instant Games are
+			required to load the SDK from Meta's own CDN, and Meta ships patches
+			in place within a major version without publishing digests, so an
+			integrity attribute would take the game down on their next patch.
+			The major version pin is the control we actually get.
+		-->
+		<script src="https://connect.facebook.net/en_US/fbinstant.8.0.js"></script>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<script>
+/*
+ * BrickRain <-> Facebook Instant Games shim.
+ *
+ * The async plumbing lives here rather than in GDScript because promises are
+ * native to JS and awkward to chain across JavaScriptBridge. Every entry point
+ * is callback-based so fb_bridge.gd can hand it a JavaScriptBridge callback.
+ *
+ * Every method degrades to a defined "unavailable" answer when FBInstant is
+ * absent, so the game stays fully playable in the editor and on a plain web
+ * server. fb_bridge.gd relies on that: it never branches on the environment
+ * itself, it just reads `available`.
+ *
+ * Callback contract: every callback receives a single JSON string, always with
+ * an `ok` boolean and, on failure, a `code` and `message`.
+ */
+window.BrickRainFB = (function () {
+	const hasSDK = typeof FBInstant !== 'undefined';
+	const state = {
+		available: false,   // SDK present AND initializeAsync resolved
+		started: false,     // startGameAsync resolved
+		rewardedReady: false,
+	};
+	let rewardedAd = null;
+
+	function reply(cb, payload) {
+		try {
+			cb(JSON.stringify(payload));
+		} catch (err) {
+			console.error('[BrickRainFB] callback failed', err);
+		}
+	}
+
+	function fail(cb, err, fallbackCode) {
+		const code = (err && err.code) ? err.code : (fallbackCode || 'UNKNOWN');
+		const message = (err && err.message) ? err.message : String(err);
+		reply(cb, { ok: false, code: code, message: message });
+	}
+
+	/*
+	 * initializeAsync must be bounded. Off platform the SDK script still loads
+	 * from Meta's CDN, so FBInstant exists, but initializeAsync then neither
+	 * resolves nor rejects — it hangs indefinitely. Awaiting it unguarded
+	 * means the game never starts in the editor, on a plain web server, or if
+	 * Facebook is having a bad day. Timing out into "unavailable" is the only
+	 * safe reading of a promise that may never settle.
+	 */
+	const INIT_TIMEOUT_MS = 5000;
+
+	function withTimeout(promise, ms) {
+		return Promise.race([
+			promise,
+			new Promise(function (resolve) {
+				setTimeout(function () {
+					resolve('__timeout__');
+				}, ms);
+			}),
+		]);
+	}
+
+	// Kicked off immediately so SDK init overlaps the engine download.
+	const initPromise = hasSDK
+		? withTimeout(FBInstant.initializeAsync(), INIT_TIMEOUT_MS).then(function (outcome) {
+			if (outcome === '__timeout__') {
+				console.warn('[BrickRainFB] initializeAsync timed out; continuing off-platform');
+				return false;
+			}
+			state.available = true;
+			return true;
+		}).catch(function (err) {
+			console.warn('[BrickRainFB] initializeAsync failed; continuing off-platform', err);
+			return false;
+		})
+		: Promise.resolve(false);
+
+	return {
+		state: state,
+
+		whenInitialized: function () {
+			return initPromise;
+		},
+
+		// Real load progress, 0..100. Called from the engine's onProgress.
+		setLoadingProgress: function (percent) {
+			if (!state.available) {
+				return;
+			}
+			try {
+				FBInstant.setLoadingProgress(percent);
+			} catch (err) {
+				console.error('[BrickRainFB] setLoadingProgress failed', err);
+			}
+		},
+
+		// Must resolve before the player can interact with the game.
+		startGame: function () {
+			if (!state.available) {
+				return Promise.resolve(false);
+			}
+			return FBInstant.startGameAsync().then(function () {
+				state.started = true;
+				return true;
+			}).catch(function (err) {
+				console.error('[BrickRainFB] startGameAsync failed', err);
+				return false;
+			});
+		},
+
+		isAvailable: function () {
+			return state.available;
+		},
+
+		isStarted: function () {
+			return state.started;
+		},
+
+		// Zero Permissions still exposes the player id, just not name or photo.
+		getPlayerId: function () {
+			if (!state.available) {
+				return '';
+			}
+			try {
+				return FBInstant.player.getID() || '';
+			} catch (err) {
+				return '';
+			}
+		},
+
+		// --- cloud save (FR05) ---
+
+		getPlayerData: function (keysJson, cb) {
+			if (!state.available) {
+				reply(cb, { ok: false, code: 'UNAVAILABLE', message: 'FBInstant not available' });
+				return;
+			}
+			let keys;
+			try {
+				keys = JSON.parse(keysJson);
+			} catch (err) {
+				reply(cb, { ok: false, code: 'INVALID_PARAM', message: 'bad keys json' });
+				return;
+			}
+			FBInstant.player.getDataAsync(keys).then(function (data) {
+				reply(cb, { ok: true, data: data || {} });
+			}).catch(function (err) {
+				fail(cb, err, 'GET_DATA_FAILED');
+			});
+		},
+
+		setPlayerData: function (dataJson, cb) {
+			if (!state.available) {
+				reply(cb, { ok: false, code: 'UNAVAILABLE', message: 'FBInstant not available' });
+				return;
+			}
+			let data;
+			try {
+				data = JSON.parse(dataJson);
+			} catch (err) {
+				reply(cb, { ok: false, code: 'INVALID_PARAM', message: 'bad data json' });
+				return;
+			}
+			FBInstant.player.setDataAsync(data).then(function () {
+				reply(cb, { ok: true });
+			}).catch(function (err) {
+				fail(cb, err, 'SET_DATA_FAILED');
+			});
+		},
+
+		// --- rewarded video (FR04) ---
+		//
+		// Preloaded during play so showing is instant. No-fill is a normal,
+		// expected outcome and is reported as a plain failure code rather than
+		// thrown, so the caller can hide the offer instead of erroring.
+
+		loadRewarded: function (placementId, cb) {
+			if (!state.available) {
+				reply(cb, { ok: false, code: 'UNAVAILABLE', message: 'FBInstant not available' });
+				return;
+			}
+			if (!placementId) {
+				reply(cb, { ok: false, code: 'NO_PLACEMENT', message: 'no placement id configured' });
+				return;
+			}
+			state.rewardedReady = false;
+			FBInstant.getRewardedVideoAsync(placementId).then(function (ad) {
+				rewardedAd = ad;
+				return ad.loadAsync();
+			}).then(function () {
+				state.rewardedReady = true;
+				reply(cb, { ok: true });
+			}).catch(function (err) {
+				rewardedAd = null;
+				fail(cb, err, 'LOAD_FAILED');
+			});
+		},
+
+		isRewardedReady: function () {
+			return state.rewardedReady;
+		},
+
+		// Resolves ok:true only when the video was watched to completion.
+		// A user-dismissed ad rejects, and must NOT grant the reward.
+		showRewarded: function (cb) {
+			if (!state.available || !rewardedAd || !state.rewardedReady) {
+				reply(cb, { ok: false, code: 'ADS_NOT_LOADED', message: 'no rewarded ad loaded' });
+				return;
+			}
+			const ad = rewardedAd;
+			rewardedAd = null;
+			state.rewardedReady = false;
+			ad.showAsync().then(function () {
+				reply(cb, { ok: true });
+			}).catch(function (err) {
+				fail(cb, err, 'SHOW_FAILED');
+			});
+		},
+
+		// --- social leaderboard ---
+		//
+		// One entry per player, best score only. The in-game dashboard keeps
+		// the per-game model separately; these are different products, and
+		// both are intentional.
+
+		submitScore: function (leaderboardName, score, cb) {
+			if (!state.available) {
+				reply(cb, { ok: false, code: 'UNAVAILABLE', message: 'FBInstant not available' });
+				return;
+			}
+			FBInstant.getLeaderboardAsync(leaderboardName).then(function (board) {
+				return board.setScoreAsync(Math.floor(score));
+			}).then(function () {
+				reply(cb, { ok: true });
+			}).catch(function (err) {
+				fail(cb, err, 'SCORE_FAILED');
+			});
+		},
+	};
+}());
+		</script>
+
+		<script src="$GODOT_URL"></script>
+		<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occurred.');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+		displayFailureNotice(missingMsg + missing.join('\n'));
+	} else {
+		setStatusMode('progress');
+		/*
+		 * FR01. The engine download starts immediately and runs in parallel
+		 * with SDK init — it is by far the slowest step, and gating it on
+		 * Facebook would put a third party on the critical path to first
+		 * paint. Progress values are the engine's own byte counts, not an
+		 * animation; setLoadingProgress no-ops until init resolves.
+		 *
+		 * startGameAsync is still awaited before the game is revealed, which
+		 * is what the platform actually requires.
+		 */
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+					window.BrickRainFB.setLoadingProgress((current / total) * 100);
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(function () {
+			return window.BrickRainFB.whenInitialized();
+		}).then(function () {
+			window.BrickRainFB.setLoadingProgress(100);
+			return window.BrickRainFB.startGame();
+		}).then(function () {
+			setStatusMode('hidden');
+		}).catch(displayFailureNotice);
+	}
+}());
+		</script>
+	</body>
+</html>

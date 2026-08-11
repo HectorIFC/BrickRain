@@ -38,6 +38,24 @@ func _ready() -> void:
 	else:
 		_show_dashboard()
 
+	# FR05: local storage answers immediately so the dashboard is never blank;
+	# the cloud copy merges in when it arrives. Off platform this emits
+	# ok=false straight away and nothing changes.
+	FBBridge.data_loaded.connect(_on_cloud_data_loaded)
+	FBBridge.load_data([Storage.CLOUD_KEY])
+
+
+func _on_cloud_data_loaded(ok: bool, data: Dictionary, _code: String) -> void:
+	if not ok or not data.has(Storage.CLOUD_KEY):
+		return
+	var cloud := Leaderboard.deserialize(str(data[Storage.CLOUD_KEY]))
+	if cloud["entries"].is_empty():
+		return
+	_leaderboard = Storage.merge_leaderboards(_leaderboard, cloud)
+	Storage.save_leaderboard(_leaderboard)
+	if _dashboard.visible:
+		_dashboard.refresh(_leaderboard)
+
 
 func _show_only(screen: Control) -> void:
 	_nickname_entry.visible = screen == _nickname_entry
@@ -79,3 +97,10 @@ func _on_game_finished(result: Dictionary) -> void:
 		Storage.today_text()
 	)
 	Storage.save_leaderboard(_leaderboard)
+
+	# Two leaderboards, deliberately. The dashboard above keeps every game as
+	# its own row (the Roku model); Facebook's social leaderboard keeps one
+	# best score per player and renders the names and photos that Zero
+	# Permissions no longer exposes to the game itself.
+	FBBridge.save_data({Storage.CLOUD_KEY: Leaderboard.serialize(_leaderboard)})
+	FBBridge.submit_score(AppConfig.leaderboard_name(), int(result["score"]))

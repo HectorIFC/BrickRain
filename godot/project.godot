@@ -10,6 +10,12 @@ config/name="BrickRain"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
+[autoload]
+
+; FBBridge must come first: Ads connects to its signals in _ready.
+FBBridge="*res://platform/fb_bridge.gd"
+Ads="*res://platform/ads.gd"
+
 [display]
 
 window/size/viewport_width=1080

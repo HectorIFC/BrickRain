@@ -1,21 +1,24 @@
-extends SceneTree
+extends Node
 
 # Layout smoke test: boots the real scene tree and asserts that screens fill
 # their parent and that the FR03 responsive rules actually flip.
 #
+# Runs as a SCENE, not a --script SceneTree replacement, because autoloads
+# (FBBridge, Ads) are not registered in --script mode and game.gd would fail to
+# compile. Run with:
+#
+#   godot --headless --path godot res://tests/SmokeLayout.tscn
+#
 # This exists because a Control that silently collapses to zero size still
 # "works" — it renders its children at their minimum size in the top-left
-# corner, which reads as a styling bug rather than a layout one. Checking the
-# numbers headlessly is far faster, and far more reliable, than resizing a
-# browser window and looking at it.
-#
-# Run with:
-#   godot --headless --path godot --script res://tests/smoke_layout.gd
+# corner, which reads as a styling bug rather than a layout one.
+
+const EXPECTED_SCREENS := ["nickname_entry.gd", "dashboard.gd", "game.gd"]
 
 var _failures := 0
 
 
-func _initialize() -> void:
+func _ready() -> void:
 	await _check_screens_fill()
 	await _check_responsive_layout()
 
@@ -24,23 +27,34 @@ func _initialize() -> void:
 		print("BRICKRAIN_LAYOUT_RESULT: PASS")
 	else:
 		print("BRICKRAIN_LAYOUT_RESULT: FAIL (" + str(_failures) + ")")
-	quit(0 if _failures == 0 else 1)
+	get_tree().quit(0 if _failures == 0 else 1)
 
 
 func _check_screens_fill() -> void:
 	var main = load("res://scenes/Main.tscn").instantiate()
-	root.add_child(main)
+	add_child(main)
 	# Two frames: one to enter the tree, one for the layout pass to settle.
-	await process_frame
-	await process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 	# Screens must fill Main. Main itself is sized by the viewport, which is a
 	# headless stub here, so it is the reference rather than the assertion.
 	var expected: Vector2 = main.size
 	print("-- screens fill Main ", expected, " --")
+
+	var found := []
 	for child in main.get_children():
-		if child is Control:
-			_expect_size(child.get_script().resource_path.get_file(), child.size, expected)
+		if child is Control and child.get_script() != null:
+			var name := str(child.get_script().resource_path.get_file())
+			found.append(name)
+			_expect_size(name, child.size, expected)
+
+	# A screen that failed to compile simply would not be here; without this
+	# check the suite would report PASS for a tree that never built.
+	for want in EXPECTED_SCREENS:
+		if not found.has(want):
+			print("MISSING SCREEN: " + want + " (did its script fail to compile?)")
+			_failures += 1
 	main.queue_free()
 
 
@@ -50,8 +64,8 @@ func _check_responsive_layout() -> void:
 	print("")
 	print("-- responsive layout --")
 	var game := GameScreen.new()
-	root.add_child(game)
-	await process_frame
+	add_child(game)
+	await get_tree().process_frame
 	game.start_game("Tester", 0)
 
 	await _assert_orientation(game, Vector2(460, 900), true, "portrait 460x900")
@@ -64,8 +78,8 @@ func _assert_orientation(game: GameScreen, view: Vector2, want_portrait: bool, l
 	# The screen is anchored to its parent, so drive it by size directly.
 	game.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	game.size = view
-	await process_frame
-	await process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 	var got := game.is_portrait()
 	if got == want_portrait:
