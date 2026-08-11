@@ -13,7 +13,7 @@
     "web:import": "godot --headless --path godot --import",
     "web:test": "godot --headless --path godot --script res://tests/run_tests.gd",
     "web:test:layout": "godot --headless --path godot res://tests/SmokeLayout.tscn",
-    "web:export": "mkdir -p build/web && godot --headless --path godot --export-release \"Web\" ../build/web/index.html",
+    "web:export": "node scripts/export-web.js",
     "web:package": "node scripts/package-web.js",
     "web:build": "npm run web:export && npm run web:package"
   },

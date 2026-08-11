@@ -24,6 +24,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "22"
+
       # The export templates are ~1.3 GB, so downloading them on every run
       # would dominate the job. Keyed on the version, so a Godot bump fetches
       # them once and then reuses them.
@@ -70,11 +75,13 @@ jobs:
       - name: Run layout smoke test
         run: godot --headless --path godot res://tests/SmokeLayout.tscn
 
+      # Uses the size-optimised custom template when one is present and the
+      # stock one otherwise. Building the custom template takes 30-60 minutes
+      # (tools/build_web_template.sh), so it is built out of band and published
+      # as a release asset; point BRICKRAIN_WEB_TEMPLATE at a downloaded copy
+      # here to have CI produce the optimised bundle.
       - name: Export web build
-        run: |
-          set -euo pipefail
-          mkdir -p build/web
-          godot --headless --path godot --export-release "Web" ../build/web/index.html
+        run: node scripts/export-web.js
 
       # Verifies index.html and fbapp-config.json land at the archive root,
       # which is what the Instant Games uploader requires.
