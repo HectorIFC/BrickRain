@@ -44,14 +44,16 @@ suites in the **same commit**. A commit that changes them on one side only is a 
 ## Before opening a PR
 
 ```bash
-npm run lint          # BrighterScript validation + bslint must be clean
-npm run test:logic    # the full headless logic suite must pass
-npm run build         # the channel must build
+make check
 ```
 
-If you touched `godot/`, also:
+That runs the whole gate: BrighterScript validation + bslint, the channel build, and both
+logic suites plus the web layout smoke test. Without make:
 
 ```bash
+npm run lint              # BrighterScript validation + bslint must be clean
+npm run test:logic        # the full headless logic suite must pass
+npm run build             # the channel must build
 npm run web:test          # the ported logic suite (same 44 cases)
 npm run web:test:layout   # screens fill the viewport; portrait/landscape flip
 ```

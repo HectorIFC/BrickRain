@@ -11,10 +11,13 @@ done by a human with access to the Facebook developer account.
 ## Build the bundle
 
 ```bash
-npm run web:test          # 44 logic cases, including the seed-23 golden values
-npm run web:test:layout   # screens fill the viewport; portrait/landscape flip
-npm run web:build         # export + package -> out/brickrain-web.zip
+make godot-test     # 44 logic cases, including the seed-23 golden values
+make godot-layout   # screens fill the viewport; portrait/landscape flip
+make godot-build    # export + package -> out/brickrain-web.zip
+make godot-play     # ...or build it and play it locally in one step
 ```
+
+(These wrap `npm run web:test`, `web:test:layout` and `web:build`, which CI calls directly.)
 
 `npm run web:build` verifies that `index.html`, `fbapp-config.json` and `theme.ogg` land at
 the **root** of the archive. A nested layout is accepted by the uploader and then fails to

@@ -50,6 +50,19 @@ _Gameplay video on a real Roku TV — coming soon._
 
 ## Quick start
 
+`make` lists every command, grouped by which of the two games it acts on — Roku targets are
+prefixed `roku-`, web ones `godot-`:
+
+```bash
+make              # the target list
+make doctor       # check your toolchain before anything else
+make godot-play   # build the web game, serve it, open the browser
+make roku-play    # build the channel to drop into the brs-engine web app
+make test         # both logic suites — the totals must match
+```
+
+The npm scripts below still work and are what CI calls; the Makefile only wraps them.
+
 ### On a real Roku (developer mode)
 
 ```bash
