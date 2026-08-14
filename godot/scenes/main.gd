@@ -74,6 +74,10 @@ func _show_nickname_entry() -> void:
 func _show_dashboard() -> void:
 	_show_only(_dashboard)
 	_dashboard.refresh(_leaderboard, _nickname)
+	# The dashboard is where a session starts and returns, so the music belongs
+	# here too. Music._start() is a no-op while already playing, so entering a
+	# game carries the same track over instead of restarting it.
+	Music.play()
 
 
 func _on_nickname_submitted(nickname: String) -> void:

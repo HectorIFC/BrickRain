@@ -103,6 +103,8 @@ mobile app. Worth checking specifically, because none of it can be verified off-
 - [ ] The rewarded "Continue" offer appears at game over **only when an ad is loaded**
 - [ ] Watching the ad through continues the run; **dismissing it early does not**
 - [ ] Scores appear on the Facebook social leaderboard
+- [ ] The **Share** button appears at game over (it is hidden off-platform) and
+      opens the share dialog with the generated score card and the result text
 
 ### 5. App Review + Business Verification
 

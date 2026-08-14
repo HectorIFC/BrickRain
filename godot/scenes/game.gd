@@ -368,10 +368,13 @@ func _on_game_over() -> void:
 		detail = "NEW RECORD\n" + detail
 
 	# The continue offer only appears when an ad is actually banked, so the
-	# player is never shown a button that then fails to deliver.
+	# player is never shown a button that then fails to deliver. Share follows
+	# the same rule: off platform it would do nothing, so it is not offered.
 	var options := []
 	if not _continue_used and Ads.is_offer_available():
 		options.append({"id": "continue", "label": "Continue (watch ad)"})
+	if FBBridge.is_available():
+		options.append({"id": "share", "label": "Share"})
 	options.append({"id": "again", "label": "Play Again"})
 	options.append({"id": "dashboard", "label": "Dashboard"})
 
@@ -398,10 +401,28 @@ func _on_game_over_selection(id: String) -> void:
 		"continue":
 			_continue_used = true
 			Ads.show_ad()
+		"share":
+			_share_result()
 		"again":
 			restart_requested.emit()
 		_:
 			_quit_to_dashboard()
+
+
+# Renders the score card and hands it to Facebook. The overlay stays open
+# throughout: sharing is a side trip, not a way out of the game-over screen.
+func _share_result() -> void:
+	var score := int(_state["score"]["score"])
+	var lines := int(_state["score"]["lines"])
+	var image := await ShareCard.render_base64(self, _player_nickname, score, lines)
+	if image == "":
+		push_warning("could not render the share card; skipping share")
+		return
+	FBBridge.share(
+		image,
+		"%s scored %d in BrickRain. Can you beat it?" % [_player_nickname, score],
+		{"score": score}
+	)
 
 
 # Only a completed view reaches here; a dismissed ad goes to _on_reward_failed.

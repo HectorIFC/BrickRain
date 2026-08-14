@@ -11,6 +11,10 @@ extends Control
 signal play_requested
 signal change_nickname_requested
 
+# Widest the content is allowed to get. Chosen to fit the narrowest design
+# space (1080) with the screen margins still applied.
+const CONTENT_MAX_WIDTH := 960
+
 var _player_label: Label
 var _record_label: Label
 var _mute_button: Button
@@ -26,6 +30,12 @@ func _ready() -> void:
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 
+	# Added before the content so it draws behind everything. It ignores the
+	# mouse, so it cannot steal clicks from the list or the buttons.
+	var rain := PieceRain.new()
+	rain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(rain)
+
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -34,6 +44,13 @@ func _ready() -> void:
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
+	# Cap the content width and centre it. Without this the rows stretch to the
+	# full viewport, which on a wide screen leaves the nickname pinned far left
+	# and the date and score far right with a dead gap between them.
+	# 960 still fits the narrowest possible design space (1080) inside the
+	# margins above, so portrait never overflows.
+	column.custom_minimum_size = Vector2(CONTENT_MAX_WIDTH, 0)
+	column.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	margin.add_child(column)
 
 	column.add_child(UiStyle.make_wordmark("BRICKRAIN", UiStyle.SIZE_WORDMARK_SMALL))

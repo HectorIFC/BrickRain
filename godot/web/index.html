@@ -343,6 +343,36 @@ window.BrickRainFB = (function () {
 		// the per-game model separately; these are different products, and
 		// both are intentional.
 
+		// --- sharing ---
+		//
+		// shareAsync needs both an image (base64) and text. The attached data
+		// blob must stay under 1000 characters once stringified, and comes
+		// back to a session launched from the share via getEntryPointData.
+
+		share: function (payloadJson, cb) {
+			if (!state.available) {
+				reply(cb, { ok: false, code: 'UNAVAILABLE', message: 'FBInstant not available' });
+				return;
+			}
+			let payload;
+			try {
+				payload = JSON.parse(payloadJson);
+			} catch (err) {
+				reply(cb, { ok: false, code: 'INVALID_PARAM', message: 'bad share payload' });
+				return;
+			}
+			FBInstant.shareAsync({
+				intent: 'SHARE',
+				image: payload.image,
+				text: payload.text,
+				data: payload.data || {},
+			}).then(function () {
+				reply(cb, { ok: true });
+			}).catch(function (err) {
+				fail(cb, err, 'SHARE_FAILED');
+			});
+		},
+
 		submitScore: function (leaderboardName, score, cb) {
 			if (!state.available) {
 				reply(cb, { ok: false, code: 'UNAVAILABLE', message: 'FBInstant not available' });

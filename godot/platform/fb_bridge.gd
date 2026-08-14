@@ -20,6 +20,7 @@ signal data_saved(ok: bool, code: String)
 signal rewarded_loaded(ok: bool, code: String)
 signal rewarded_shown(ok: bool, code: String)
 signal score_submitted(ok: bool, code: String)
+signal shared(ok: bool, code: String)
 
 # JavaScriptBridge callbacks must stay referenced for as long as JS might call
 # them; a local would be collected and the callback would fire into freed
@@ -29,6 +30,7 @@ var _cb_set_data: JavaScriptObject
 var _cb_load_ad: JavaScriptObject
 var _cb_show_ad: JavaScriptObject
 var _cb_submit_score: JavaScriptObject
+var _cb_share: JavaScriptObject
 
 var _shim: JavaScriptObject = null
 
@@ -45,6 +47,7 @@ func _ready() -> void:
 	_cb_load_ad = JavaScriptBridge.create_callback(_on_load_ad)
 	_cb_show_ad = JavaScriptBridge.create_callback(_on_show_ad)
 	_cb_submit_score = JavaScriptBridge.create_callback(_on_submit_score)
+	_cb_share = JavaScriptBridge.create_callback(_on_share)
 
 
 func _is_web() -> bool:
@@ -124,6 +127,23 @@ func submit_score(leaderboard_name: String, score: int) -> void:
 	_shim.submitScore(leaderboard_name, score, _cb_submit_score)
 
 
+# --- sharing ---
+
+
+# image_base64 must be a data URI; Facebook renders it in the share card.
+# The data blob rides along and is handed to a session launched from the share
+# via getEntryPointData, so it is capped at the documented 1000 characters.
+func share(image_base64: String, text: String, data: Dictionary = {}) -> void:
+	if _shim == null:
+		shared.emit(false, "UNAVAILABLE")
+		return
+	var encoded_data := JSON.stringify(data)
+	if encoded_data.length() > 1000:
+		push_warning("share data over the 1000-character limit; sending it empty")
+		data = {}
+	_shim.share(JSON.stringify({"image": image_base64, "text": text, "data": data}), _cb_share)
+
+
 # --- callback plumbing ---
 
 
@@ -168,3 +188,8 @@ func _on_show_ad(args: Array) -> void:
 func _on_submit_score(args: Array) -> void:
 	var result := _parse(args)
 	score_submitted.emit(bool(result.get("ok", false)), _code(result))
+
+
+func _on_share(args: Array) -> void:
+	var result := _parse(args)
+	shared.emit(bool(result.get("ok", false)), _code(result))

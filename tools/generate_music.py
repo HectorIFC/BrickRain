@@ -38,24 +38,97 @@ SR = 44100
 BPM = 128
 BEAT = 60.0 / BPM
 BAR = 4 * BEAT
-BARS = 16
+# Three 16-bar sections. 48 bars at 128 BPM is exactly 90 s — long enough to
+# hold a session without the loop announcing itself, which 30 s of one repeated
+# progression did. Each section has its own harmony and density so the track
+# travels somewhere instead of restating the same four bars twelve times.
+SECTION_BARS = 16
+SECTIONS = 3
+BARS = SECTION_BARS * SECTIONS
 TOTAL = BARS * BAR
 
-# A minor, i - VI - III - VII. Energetic, and the classic arcade progression.
-CHORDS = [
+# A: A minor, i - VI - III - VII. The classic arcade progression.
+CHORDS_A = [
     {"root": 110.00, "tones": [220.00, 261.63, 329.63]},  # Am
     {"root": 87.31, "tones": [174.61, 220.00, 261.63]},   # F
     {"root": 130.81, "tones": [261.63, 329.63, 392.00]},  # C
     {"root": 98.00, "tones": [196.00, 246.94, 293.66]},   # G
 ]
 
-# Melody over the 4-bar cycle, as chord-tone indices; None is a rest.
-LEAD = [
+# B: iv - i - V - i. The major E gives the section its lift.
+CHORDS_B = [
+    {"root": 73.42, "tones": [146.83, 174.61, 220.00]},   # Dm
+    {"root": 110.00, "tones": [220.00, 261.63, 329.63]},  # Am
+    {"root": 82.41, "tones": [164.81, 207.65, 246.94]},   # E
+    {"root": 110.00, "tones": [220.00, 261.63, 329.63]},  # Am
+]
+
+# C: bridge. Thins out, then climbs back so it lands cleanly on A again.
+CHORDS_C = [
+    {"root": 87.31, "tones": [174.61, 220.00, 261.63]},   # F
+    {"root": 98.00, "tones": [196.00, 246.94, 293.66]},   # G
+    {"root": 110.00, "tones": [220.00, 261.63, 329.63]},  # Am
+    {"root": 110.00, "tones": [220.00, 261.63, 329.63]},  # Am
+]
+
+# Melodies over each 4-bar cycle, as chord-tone indices; None is a rest.
+LEAD_A = [
     [2, None, 1, 2, None, 0, None, None],
     [1, None, 2, 1, None, 0, None, None],
     [2, None, 1, 0, None, 1, None, None],
     [1, None, 0, 1, None, 2, None, None],
 ]
+LEAD_B = [
+    [2, 1, 2, None, 1, 2, None, 0],
+    [1, 2, 1, None, 0, 1, None, 2],
+    [2, 1, 0, None, 2, 1, None, 0],
+    [0, 1, 2, None, 1, 0, None, None],
+]
+LEAD_C = [
+    [0, None, None, 1, None, None, 2, None],
+    [1, None, None, 2, None, None, 1, None],
+    [2, None, 1, None, 0, None, 1, None],
+    [2, None, 1, 2, None, 1, 0, None],
+]
+
+
+def bar_plan() -> list:
+    """One descriptor per bar: harmony plus which layers are playing.
+
+    Keeping the arrangement as data rather than branches inside the render loop
+    makes the shape of the track readable at a glance, and easy to retune.
+    """
+    plan = []
+    # A — opens sparse and builds, so the loop point is the quietest moment.
+    for bar in range(SECTION_BARS):
+        phrase = bar // 4
+        plan.append({
+            "chord": CHORDS_A[bar % 4],
+            "lead": LEAD_A[bar % 4] if phrase >= 2 else None,
+            "bass": phrase >= 1,
+            "drums": phrase >= 1,
+            "hats": phrase >= 2,
+        })
+    # B — full energy from the downbeat, busier melody.
+    for bar in range(SECTION_BARS):
+        plan.append({
+            "chord": CHORDS_B[bar % 4],
+            "lead": LEAD_B[bar % 4],
+            "bass": True,
+            "drums": True,
+            "hats": True,
+        })
+    # C — bridge: drops out, then rebuilds so it hands back to A with momentum.
+    for bar in range(SECTION_BARS):
+        phrase = bar // 4
+        plan.append({
+            "chord": CHORDS_C[bar % 4],
+            "lead": LEAD_C[bar % 4] if phrase >= 1 else None,
+            "bass": phrase >= 1,
+            "drums": phrase >= 2,
+            "hats": phrase >= 3,
+        })
+    return plan
 
 rng = np.random.default_rng(20260811)
 
@@ -127,44 +200,39 @@ def hat(duration: float = 0.035) -> np.ndarray:
 def build() -> np.ndarray:
     loop = Loop(TOTAL)
 
-    for bar in range(BARS):
-        chord = CHORDS[bar % 4]
+    for bar, plan in enumerate(bar_plan()):
+        chord = plan["chord"]
         bar_at = bar * BAR
-        # Intensity ramps across the cycle: sparse at the top, full by the end.
-        stage = bar // 4
 
-        # Arpeggio, 16th notes, running the whole loop.
+        # Arpeggio, 16th notes, running under the whole track.
         for step in range(16):
             tone = chord["tones"][step % 3] * (2.0 if step % 8 >= 4 else 1.0)
             note = env(square(tone, BEAT / 4, duty=0.25), decay=9.0)
             loop.add(note, bar_at + step * BEAT / 4, gain=0.16)
 
-        # Bass from the second phrase.
-        if stage >= 1:
+        if plan["bass"]:
             for step in range(8):
                 note = env(square(chord["root"], BEAT / 2, duty=0.5), decay=4.5)
                 loop.add(note, bar_at + step * BEAT / 2, gain=0.30)
 
-        # Lead melody from the third phrase.
-        if stage >= 2:
-            for step, degree in enumerate(LEAD[bar % 4]):
+        if plan["lead"] is not None:
+            for step, degree in enumerate(plan["lead"]):
                 if degree is None:
                     continue
                 tone = chord["tones"][degree] * 2.0
                 note = env(triangle(tone, BEAT * 0.45), attack=0.008, decay=5.0)
                 loop.add(note, bar_at + step * BEAT / 2, gain=0.26)
 
-        # Percussion from the second phrase; hats fill in with the lead.
-        if stage >= 1:
+        if plan["drums"]:
             for beat in range(4):
                 at = bar_at + beat * BEAT
                 if beat in (0, 2):
                     loop.add(kick(), at, gain=0.55)
                 else:
                     loop.add(snare(), at, gain=0.28)
-            if stage >= 2:
-                for step in range(8):
-                    loop.add(hat(), bar_at + step * BEAT / 2, gain=0.12)
+        if plan["hats"]:
+            for step in range(8):
+                loop.add(hat(), bar_at + step * BEAT / 2, gain=0.12)
 
     audio = loop.buffer
     peak = float(np.max(np.abs(audio)))
