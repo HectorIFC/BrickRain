@@ -12,12 +12,20 @@ extends Node
 #
 # 2. Playback cannot start before a user gesture. Browsers block audio until
 #    then, so the first play() call comes from the Play button, never from boot.
+#    web/index.html additionally resumes the AudioContext from a gesture
+#    handler, because Chrome does not always honour Godot's own resume.
 #
 # 3. The "tense" variant is the same track pitched up with a low-pass opened
 #    out, not a second file. It costs no extra bytes.
 #
 # Music sits on its own bus so the sound effects cut through it and the tense
 # filter never touches them.
+#
+# NOTE: this only produces sound because project.godot forces
+# audio/general/default_playback_type.web to Stream. Under the web default
+# ("Sample") a looping Ogg — and anything built with load_from_buffer — is
+# dropped with a warning while still reporting playing=true, which is silent
+# and very hard to spot.
 
 const TRACK_URL := "theme.ogg"
 const TRACK_RES := "res://music/theme.ogg"
@@ -32,7 +40,7 @@ const VOLUME_DB := -7.0
 var _player: AudioStreamPlayer
 var _shim: JavaScriptObject = null
 var _cb_track: JavaScriptObject
-var _filter: AudioEffectFilter
+var _filter: AudioEffectLowPassFilter
 var _bus_index := 0
 var _muted := false
 var _tense := false
@@ -60,8 +68,9 @@ func _setup_bus() -> void:
 		AudioServer.set_bus_name(_bus_index, BUS_NAME)
 		AudioServer.set_bus_send(_bus_index, "Master")
 	# A wide-open low-pass by default; closing it is what makes the tense
-	# variant sound urgent without a second recording.
-	_filter = AudioEffectFilter.new()
+	# variant sound urgent without a second recording. AudioEffectLowPassFilter,
+	# not the AudioEffectFilter base class the concrete filters derive from.
+	_filter = AudioEffectLowPassFilter.new()
 	_filter.cutoff_hz = NORMAL_CUTOFF
 	AudioServer.add_bus_effect(_bus_index, _filter)
 	_apply_mute()

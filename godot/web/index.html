@@ -362,6 +362,61 @@ window.BrickRainFB = (function () {
 
 		<script>
 /*
+ * AudioContext unlock.
+ *
+ * Chrome creates the context suspended and refuses to start it until a user
+ * gesture. Godot has its own resume hook (_godot_audio_resume), but it is not
+ * always honoured — Chrome logs "The AudioContext was not allowed to start"
+ * and every sound is silently dropped: the mixer keeps running and playback
+ * positions advance, so nothing looks wrong from inside the engine.
+ *
+ * Wrapping the constructor is what lets us hold a reference to the context
+ * Godot creates, so resume() can be called from a real gesture handler. The
+ * listeners stay attached (rather than firing once) because the first gesture
+ * is not always accepted.
+ */
+window.BrickRainAudio = (function () {
+	const Original = window.AudioContext || window.webkitAudioContext;
+	if (!Original) {
+		return { state: function () { return 'unsupported'; } };
+	}
+	let ctx = null;
+
+	function Wrapped() {
+		const created = new (Function.prototype.bind.apply(
+			Original, [null].concat([].slice.call(arguments))
+		))();
+		if (ctx === null) {
+			ctx = created;
+		}
+		return created;
+	}
+	Wrapped.prototype = Original.prototype;
+	window.AudioContext = Wrapped;
+	if (window.webkitAudioContext) {
+		window.webkitAudioContext = Wrapped;
+	}
+
+	function unlock() {
+		if (ctx && ctx.state !== 'running') {
+			// Must run inside the gesture's own task; do not defer it.
+			ctx.resume().catch(function () { /* retried on the next gesture */ });
+		}
+	}
+
+	['pointerdown', 'mousedown', 'touchstart', 'keydown'].forEach(function (type) {
+		window.addEventListener(type, unlock, { capture: true });
+	});
+
+	return {
+		unlock: unlock,
+		state: function () { return ctx ? ctx.state : 'none'; },
+	};
+}());
+		</script>
+
+		<script>
+/*
  * Music loader.
  *
  * The track is fetched here rather than with Godot's HTTPRequest, which does

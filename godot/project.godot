@@ -19,6 +19,16 @@ boot_splash/image="res://assets/images/boot_splash.png"
 boot_splash/fullsize=false
 boot_splash/use_filter=true
 
+[audio]
+
+; Godot 4.4+ defaults the web platform to "Sample" playback, handing streams
+; straight to Web Audio instead of mixing them. Streams it cannot sample —
+; looping Ogg, and anything built at runtime with load_from_buffer — are then
+; dropped with only a warning, so the game reports playing=true, the mixer runs
+; at full rate, and every sample is silence. Forcing Stream playback routes
+; audio through Godot's mixer, which is what actually reaches the speakers.
+general/default_playback_type.web=0
+
 [autoload]
 
 ; FBBridge must come first: Ads connects to its signals in _ready.

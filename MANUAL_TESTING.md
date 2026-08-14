@@ -62,3 +62,35 @@ simulator) with this checklist after each significant UI change.
 - [ ] A lower later score for the same nickname does **not** replace a higher one.
 - [ ] **Reboot the Roku** (Settings → System → Power → System restart). After
       reboot, relaunch the channel: the leaderboard and last nickname **survive**.
+
+---
+
+# Web build (Godot / Facebook Instant Games)
+
+Audio cannot be verified headlessly — no test in this repository can tell you
+whether a sound actually reached the speakers. That gap once let the web build
+ship completely silent while every automated check stayed green: the files were
+intact, the mixer ran at full rate, and `playing` reported `true`, because Godot
+was routing audio to a path that silently dropped it. **Listen to it.**
+
+Run `make godot-play`, then:
+
+### Audio
+- [ ] Music starts when you press **Play** on the dashboard — never before, since
+      browsers block audio until a user gesture.
+- [ ] Effects are audible on move, rotate, hard drop, lock and line clear.
+      `move` and `menu_select` are ~50 ms blips by design; listen for a tick,
+      not a tone.
+- [ ] The music loops without an audible seam at 30 s.
+- [ ] Music turns tense (pitched up, muffled) when the stack nears the top.
+- [ ] **SOUND / MUTED** silences everything, including effects, and the choice
+      survives a reload.
+- [ ] Game over plays the descending defeat cue; only a run that beats the
+      dashboard record adds the rising fanfare on top.
+- [ ] The browser console shows `music ready: <length>` and **no** warning about
+      a stream that "cannot be sampled".
+
+### Visual & layout
+- [ ] The loading screen shows the BrickRain splash, not the Godot logo.
+- [ ] Resize the window to portrait and to landscape: the panel and well
+      rearrange, and the well always stays fully on screen.
