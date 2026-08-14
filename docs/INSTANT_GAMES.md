@@ -25,21 +25,22 @@ boot, so it is worth failing the build on.
 
 If `godot/music/theme.ogg` is missing, regenerate it with
 `python3 tools/generate_music.py`. It is deliberately kept out of `index.pck` — everything
-in the pck is downloaded before the first frame, so packing a 241 KB track would delay the
-boot for every player. It is fetched lazily instead, and the game runs fine without it.
+in the pck is downloaded before the first frame, so packing the 725 KB track would delay
+the boot for every player. It is fetched lazily instead, and the game runs fine without it.
 
 CI (`.github/workflows/godot-ci.yml`) runs the same steps on every push and attaches the
 ZIP as a workflow artifact, so there is always a reviewable bundle to download.
 
 ### Optional: the size-optimised runtime
 
-The stock Godot runtime is ~99% of the download. A stripped custom template cuts it by
-about 27%:
+The Godot runtime dominates the download. A stripped custom template cuts about a quarter
+off the whole bundle — measured on the current content, music included:
 
 | | raw | gzip | brotli |
 |---|---:|---:|---:|
-| stock | 38.12 MB | 9.74 MB | 6.76 MB |
-| stripped | 27.12 MB | 7.01 MB | 4.90 MB |
+| stock | 38.85 MB | 10.47 MB | 7.42 MB |
+| stripped | 27.86 MB | 7.70 MB | **5.56 MB** |
+| saving | 10.99 MB | 2.77 MB | 1.86 MB (25%) |
 
 ```bash
 tools/build_web_template.sh        # ~8 minutes; needs ~15 GB free disk
@@ -147,11 +148,12 @@ They are different products and both are intentional.
 
 ## Known limits
 
-- **First load misses NFR01 (<3 s) on a typical mobile connection.** At 4.90 MB brotli it
-  is roughly 4.4 s of transfer at 9 Mbps plus ~2 s of engine boot. It meets <3 s above
-  ~40 Mbps and on every cached repeat load. The stripped template was the last significant
-  lever; further gains would mean cutting engine features the game uses.
-- Meta's documented bundle ceiling is 200 MB and the packager fails above it. At ~7 MB
+- **First load misses NFR01 (<3 s) on a typical mobile connection.** At 5.56 MB brotli it
+  is roughly 4.9 s of transfer at 9 Mbps plus ~2 s of engine boot. It meets <3 s above
+  ~50 Mbps and on every cached repeat load. The stripped template was the last significant
+  lever; further gains would mean cutting engine features the game uses, or shortening the
+  soundtrack again (the 90 s track is 725 KB of that figure).
+- Meta's documented bundle ceiling is 200 MB and the packager fails above it. At ~7.8 MB
   zipped there is a lot of headroom. Worth confirming the current figure in the dashboard,
   since it is documented outside the main SDK reference.
 - Deploy is manual. Meta publishes no first-party GitHub Action for bundle upload, and
