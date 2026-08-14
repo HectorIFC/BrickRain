@@ -58,9 +58,51 @@ present and the stock template otherwise, so a clean clone always exports.
 
 These need the Facebook developer account and cannot be scripted from this repo.
 
-### 1. Create the app
+> **On the accuracy of this section.** The navigation labels below come from the sources
+> listed at the end, not from a live dashboard. Meta reshuffles these flows regularly, so
+> treat the labels as "look for something like this", not as coordinates. Where a step is
+> a documented behaviour rather than a label — status transitions, prerequisites, review
+> times — it is called out as such, because those are the parts that actually bite.
 
-App Dashboard → Create App → **Instant Games**.
+### Do these in this order, not the order they are numbered
+
+Business Verification gates App Review and takes **up to four weeks**; the review itself
+takes **3-5 business days**. So verification starts on day one and runs in the background
+while everything else happens. Left to the end, the submission sits idle for a month
+waiting on something that could have been started immediately.
+
+```
+Day 1    ├── Step 0  Business Verification ....................... (up to 4 weeks)
+         ├── Step 1  Create the app
+         ├── Step 2  Rewarded video placement
+         ├── Step 3  Upload the bundle
+         └── Step 4  Test on device
+                                          Step 5  Submit ── (3-5 business days)
+                                          ↑ needs Step 0 finished
+```
+
+---
+
+### Step 0 — Business Verification (start immediately)
+
+App Review requires the game to be linked to a **verified business**, and verification is
+the long pole in the whole schedule.
+
+Prerequisites, both easy to miss:
+
+- The admin starting the verification needs **two-factor authentication** enabled on their
+  personal Facebook account.
+- The Business Manager needs an **app connected to it**. Step 1 satisfies this, so if you
+  do Step 1 first the connection is already there.
+
+Expect **up to 4 weeks**. Nothing in Step 5 can be submitted until this clears.
+
+### Step 1 — Create the app
+
+Meta for Developers → **Create App** → app type **Games** → add the **Instant Games**
+product. During setup you are asked whether the game uses Instant Games (**yes**) and for
+an **orientation** — choose **portrait**, which is what the layout is designed around
+(`godot/scenes/game.gd` stacks panel / well / controls when height ≥ width).
 
 Every game created after 2025-08-01 runs under **Network Enabled Zero Permissions**, which
 is why the SDK is pinned to v8.0 in `godot/web/index.html`.
@@ -69,10 +111,19 @@ is why the SDK is pinned to v8.0 in `godot/web/index.html`.
 > asks for a nickname itself (`godot/scenes/nickname_entry.gd`) rather than reading one from
 > the SDK — that flow is required, not decorative. Player **ID** is still available.
 
-### 2. Create the ad placement and wire the id in
+### Step 2 — Rewarded video placement
 
-Monetization → create a **Rewarded Video** placement, then put its id in
-`godot/app_config.json`:
+Two different surfaces are involved, which is the part that trips people up: the **app
+dashboard** enables the product, but the placement itself is created in **Monetization
+Manager**, inside Business Manager.
+
+1. App dashboard → **Add a Product** → **Audience Network** → Set Up.
+2. **Monetization Manager** → choose or create a business → choose country → create a
+   **property** and name it.
+3. Choose the display format — **Rewarded Video** — and create the placement.
+4. **Copy ID**.
+
+Paste it into `godot/app_config.json`:
 
 ```json
 {
@@ -81,36 +132,96 @@ Monetization → create a **Rewarded Video** placement, then put its id in
 }
 ```
 
-Placement ids are configuration, never compiled into source. **An empty id is a supported
-state**: the rewarded "Continue" offer is simply not shown, and nothing errors. That is the
-correct behaviour before this step is done.
+Then rebuild — the config ships inside the bundle:
 
-Rebuild after editing (`npm run web:build`) — the config ships inside the bundle.
+```bash
+make godot-build
+```
 
-### 3. Upload
+Three things worth knowing before you judge whether it works:
 
-Web Hosting → **Upload Version** → `out/brickrain-web.zip`, then push it to production when
-you are ready.
+- **Ads are not served to desktop browsers.** The "Continue (watch ad)" option will never
+  appear in Chrome on a computer. That is the platform, not a bug — test ads on a phone.
+- **Payout information is a prerequisite.** Until a payment account is attached in
+  Business Manager, no ads are served, so the offer stays hidden even on mobile.
+- **An empty id is a supported state.** Placement ids are configuration, never compiled
+  into source; with the field empty the offer is simply not shown and nothing errors. That
+  is the correct behaviour before this step is done.
 
-### 4. Test
+### Step 3 — Upload the bundle
 
-Test in the Instant Games test environment first, then in the real Messenger / Facebook
-mobile app. Worth checking specifically, because none of it can be verified off-platform:
+```bash
+make godot-build      # writes out/brickrain-web.zip
+```
+
+App dashboard → **Web Hosting** → **Upload Version** → pick `out/brickrain-web.zip`.
+
+The upload then moves through states on its own:
+
+| State | Meaning |
+|---|---|
+| **Processing** | Just uploaded; Meta is unpacking it |
+| **Standby** | Ready, usually after a minute or two, but **not** serving to anyone |
+| **Production** | Serving — set by clicking the **star** ("Push to Production") on the row |
+
+**"Production" does not mean public.** Until the game passes App Review, only people listed
+under Roles can open it. Pushing to production is safe, and Step 4 depends on it.
+
+### Step 4 — Test on a real device
+
+**You cannot test at all until a version is starred as production**, so do Step 3 first.
+
+Add whoever should try it: app dashboard → **Roles** → **Add testers**.
+
+On the phone: open **Messenger** → any conversation → the **+** button → **Games** → the
+game appears there for accounts that have the tester or developer role.
+
+Now run the checks that cannot be verified anywhere else:
 
 - [ ] Loading bar advances and the game starts (`initializeAsync` → `startGameAsync`)
-- [ ] Nickname prompt accepts input and the software keyboard appears on a phone
-- [ ] Portrait layout on a real handset; landscape if you support rotating
+- [ ] Nickname prompt accepts input and the software keyboard appears
+- [ ] Portrait layout on a real handset
 - [ ] Score persists across sessions (`player.setDataAsync` / `getDataAsync`)
 - [ ] The rewarded "Continue" offer appears at game over **only when an ad is loaded**
 - [ ] Watching the ad through continues the run; **dismissing it early does not**
 - [ ] Scores appear on the Facebook social leaderboard
-- [ ] The **Share** button appears at game over (it is hidden off-platform) and
-      opens the share dialog with the generated score card and the result text
+- [ ] The **Share** button appears at game over and opens the share dialog with the
+      generated score card and the result text
+- [ ] Audio: music starts on the first tap, effects are audible, mute persists
 
-### 5. App Review + Business Verification
+Two of these only work on a phone: **ads** (not served to desktop) and the **software
+keyboard**. Everything else can be sanity-checked with `make godot-play` first.
 
-Required for real-time data access before the game can be public. This is the long pole in
-the schedule — start it in parallel with the testing above, not after.
+### Step 5 — App Center listing and submission
+
+The game needs a store listing before it can be reviewed.
+
+1. App dashboard → **App Center** (add the product if it is not there yet).
+2. **Details** — upload the icons, screenshots and any video, and write the description.
+   Use real screenshots; this is what players see before installing.
+3. **Review** sub-section → start a submission → fill in the **App Verification notes**
+   (how a reviewer reaches the gameplay, plus anything non-obvious).
+4. **Submit for Review** only becomes available once Details and the verification notes are
+   both complete — if the button looks disabled, something above is unfinished.
+
+Review takes **3-5 business days**. You can launch **globally or country by country**. Once
+approved, the game is not reviewed again unless it is later found to violate policy.
+
+---
+
+## Sources
+
+Meta rewrites these flows often, and `developers.facebook.com` renders through JavaScript,
+so the pages cannot be read by simple tooling. These are the references behind the labels
+above — re-check them when something does not match:
+
+- [Instant Games launch checklist](https://developers.facebook.com/docs/games/build/instant-games/get-started/launch-checklist)
+- [App Center for Instant Games](https://developers.facebook.com/docs/games/build/instant-games/get-started/app-center/)
+- [Ads and monetization guide](https://developers.facebook.com/docs/games/instant-games/guides/ads-monetization/)
+- [How do I monetize Instant Games with Audience Network?](https://www.facebook.com/business/help/355647874927053)
+- [GDevelop: publishing to Facebook Instant Games](https://wiki.gdevelop.io/gdevelop5/publishing/publishing-to-facebook-instant-games/)
+- [GDevelop: monetizing an Instant Game](https://wiki.gdevelop.io/gdevelop5/publishing/publishing-to-facebook-instant-games/monetize/)
+- [GameMaker: Instant Games getting started](https://gamemaker.io/en/help/articles/facebook-instant-games-getting-started)
 
 ---
 
@@ -148,7 +259,8 @@ They are different products and both are intentional.
 
 ## Known limits
 
-- **First load misses NFR01 (<3 s) on a typical mobile connection.** At 5.56 MB brotli it
+- **First load takes longer than the 3 s the PRD asked for on a typical mobile
+  connection.** At 5.56 MB brotli it
   is roughly 4.9 s of transfer at 9 Mbps plus ~2 s of engine boot. It meets <3 s above
   ~50 Mbps and on every cached repeat load. The stripped template was the last significant
   lever; further gains would mean cutting engine features the game uses, or shortening the
