@@ -18,6 +18,10 @@ signal restart_requested
 
 # Delay before new_record.ogg, so it does not overlap game_over.ogg.
 const RECORD_SOUND_DELAY_S := 0.9
+# The arcade celebration shape: jingle once, then a looping show. Rockets keep
+# launching while the NEW RECORD overlay is up; rise time is fixed so the
+# burst sound can be scheduled for the exact moment the visual pops.
+const FIREWORK_RISE_S := 0.45
 
 var _state: Dictionary = {}
 var _last_level := -1
@@ -26,6 +30,8 @@ var _record_score := 0
 var _pending_record := false
 var _running := false
 var _accum_ms := 0.0
+var _celebrating := false
+var _next_firework_s := 0.0
 var _portrait := true
 # A rewarded continue is offered at most once per game, so the run still ends.
 var _continue_used := false
@@ -166,6 +172,7 @@ func start_game(nickname: String, record_score: int) -> void:
 	_state = Game.create()
 	_pause_overlay.visible = false
 	_game_over_overlay.visible = false
+	_stop_celebration()
 	_fx.clear_all()
 	_shake_amp = 0.0
 	_running = true
@@ -198,6 +205,13 @@ func _process(delta: float) -> void:
 		_shake_amp = 0.0
 		_board_view.shake_offset = Vector2.ZERO
 		_fx.position = Vector2.ZERO
+
+	# The fireworks show loops for as long as the record overlay is up.
+	if _celebrating:
+		_next_firework_s -= delta
+		if _next_firework_s <= 0.0:
+			_next_firework_s = randf_range(0.45, 0.9)
+			_launch_firework()
 
 	if not _running or _state.is_empty() or _state["status"] != "playing":
 		return
@@ -550,6 +564,27 @@ func _on_record_timer() -> void:
 		_audio.play("confetti_pop")
 		_fx.confetti()
 		_pending_record = false
+		# The victory jingle plays through first; the fireworks show starts on
+		# its tail and loops until the player leaves the overlay.
+		_celebrating = true
+		_next_firework_s = 1.0
+
+
+func _stop_celebration() -> void:
+	_celebrating = false
+
+
+func _launch_firework() -> void:
+	var palette := GameTheme.cell_colors()
+	_audio.play("firework_launch")
+	_fx.firework(palette[randi_range(1, 7)], FIREWORK_RISE_S)
+	var timer := get_tree().create_timer(FIREWORK_RISE_S)
+	timer.timeout.connect(func() -> void:
+		# Guarded so a rocket in flight when the player leaves does not boom
+		# over the dashboard.
+		if _celebrating:
+			_audio.play_pitched("firework_burst", randi_range(0, 4))
+	)
 
 
 func _on_game_over_selection(id: String) -> void:
@@ -594,6 +629,8 @@ func _on_reward_granted() -> void:
 	_last_level = -1
 	_accum_ms = 0.0
 	_pending_record = false
+	_stop_celebration()
+	_fx.clear_all()
 	_game_over_overlay.visible = false
 	_running = true
 	_input.set_enabled(true)
@@ -626,6 +663,7 @@ func _quit_to_dashboard() -> void:
 	# Cancel a pending new-record sound so it cannot fire on the dashboard
 	# after a quick exit from a record-setting game over.
 	_pending_record = false
+	_stop_celebration()
 	_input.set_enabled(false)
 	_pause_overlay.visible = false
 	_game_over_overlay.visible = false

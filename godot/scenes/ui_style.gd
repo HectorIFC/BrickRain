@@ -86,8 +86,17 @@ static func make_button(text: String, size: int = SIZE_BUTTON) -> Button:
 # The wordmark: one Label per letter, colored from the tetromino palette, the
 # same trick tools/generate_artwork.py uses for the splash. Index 0 of the
 # palette is the empty-cell color, so letters cycle through 1..7.
-static func make_wordmark(text: String, size: int = SIZE_WORDMARK) -> HBoxContainer:
+#
+# By default the letters do a stadium wave — a pulse travelling left to right,
+# each letter's bob phase-delayed from the previous one. Pass animated = false
+# where motion would be wrong: the share card (rendered once to a texture) and
+# the BoardFx popups (they already have their own rise-and-fade motion).
+static func make_wordmark(text: String, size: int = SIZE_WORDMARK, animated: bool = true) -> HBoxContainer:
 	var box := HBoxContainer.new()
+	if animated:
+		var wave := WordmarkWave.new()
+		wave.amplitude = size * 0.09
+		box = wave
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 0)
 	var palette := GameTheme.cell_colors()
@@ -95,3 +104,35 @@ static func make_wordmark(text: String, size: int = SIZE_WORDMARK) -> HBoxContai
 		var letter := UiStyle.make_label(text[i], size, palette[(i % 7) + 1])
 		box.add_child(letter)
 	return box
+
+
+class WordmarkWave extends HBoxContainer:
+	# The "ola": each letter rides a sine wave, phase-shifted by its index so
+	# the crest travels across the word. Base positions are captured after the
+	# container sorts its children — the idiomatic way to animate children of a
+	# Container without fighting its layout.
+	const PERIOD_S := 1.8
+	const PHASE_PER_LETTER := 0.55
+
+	var amplitude := 8.0
+	var _t := 0.0
+	var _base_y := {}
+
+	func _ready() -> void:
+		sort_children.connect(_capture_bases)
+
+	func _capture_bases() -> void:
+		_base_y.clear()
+		for child in get_children():
+			_base_y[child] = (child as Control).position.y
+
+	func _process(delta: float) -> void:
+		if not is_visible_in_tree():
+			return
+		_t = fmod(_t + delta, PERIOD_S)
+		var i := 0
+		for child in get_children():
+			if _base_y.has(child):
+				(child as Control).position.y = float(_base_y[child]) \
+					+ sin(TAU * _t / PERIOD_S - i * PHASE_PER_LETTER) * amplitude
+			i += 1

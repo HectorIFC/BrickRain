@@ -53,7 +53,7 @@ static func _build_card(nickname: String, score: int, lines: int) -> Control:
 	center.add_child(column)
 
 	# Same wordmark the game shows, so a shared card is recognisably BrickRain.
-	column.add_child(UiStyle.make_wordmark("BRICKRAIN", 64))
+	column.add_child(UiStyle.make_wordmark("BRICKRAIN", 64, false))
 	column.add_child(UiStyle.make_label(nickname, 34, GameTheme.accent_color()))
 	column.add_child(UiStyle.make_label(str(score), 96, GameTheme.text_color()))
 	column.add_child(UiStyle.make_label(

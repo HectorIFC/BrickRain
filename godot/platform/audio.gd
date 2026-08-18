@@ -20,7 +20,9 @@ const SOUND_NAMES := [
 	"new_record",
 	"confetti_pop",
 	"combo",
-	"menu_select"
+	"menu_select",
+	"firework_launch",
+	"firework_burst"
 ]
 
 # Maps the simple game event kinds to the effect they play. lineClear, levelUp

@@ -10,10 +10,11 @@ extends Control
 # _process and drawn in _draw. No nodes per particle, hard cap on the pool.
 # Everything here is presentation; nothing reaches into game state.
 
-const MAX_PARTICLES := 250
+const MAX_PARTICLES := 350
 const GRAVITY := 900.0
 
 var _particles: Array = []
+var _rockets: Array = []      # {from, apex, t, rise, color}
 var _flashes: Array = []      # {y_px, h_px, t}
 var _pulses: Array = []       # {cells: Array, t}
 var _wave_t := -1.0
@@ -101,12 +102,54 @@ func confetti() -> void:
 		_push_particle(p)
 
 
+# One firework of the record celebration: a rocket streaks up from the well
+# floor and pops into a radial burst at a random apex. The caller fixes rise_s
+# so it can schedule the burst sound for the same instant — sound and visual
+# stay in sync by construction, no signal needed.
+func firework(color: Color, rise_s: float) -> void:
+	var m := _metrics()
+	var origin: Vector2 = m["origin"]
+	var well: Vector2 = m["well"]
+	_rockets.append({
+		"from": Vector2(origin.x + _rng.randf_range(well.x * 0.15, well.x * 0.85), origin.y + well.y),
+		"apex": Vector2(
+			origin.x + _rng.randf_range(well.x * 0.2, well.x * 0.8),
+			origin.y + _rng.randf_range(well.y * 0.08, well.y * 0.35)
+		),
+		"t": 0.0,
+		"rise": rise_s,
+		"color": color,
+	})
+
+
+func _explode(at: Vector2, color: Color) -> void:
+	# Sizes and speeds live in the 1080x1920 design space, so the burst has to
+	# be sized against the well (~900 wide), not against a cell — the first cut
+	# used cell-scale numbers and read as a barely-visible speck.
+	# A brief white core so the pop reads as a flash, then the colored ring.
+	for _i in range(8):
+		var core := _make_particle(at, Color(1, 1, 1, 0.95))
+		core["vel"] = Vector2(_rng.randf_range(-80, 80), _rng.randf_range(-80, 80))
+		core["life"] = _rng.randf_range(0.2, 0.35)
+		core["size"] = _rng.randf_range(10.0, 16.0)
+		core["gravity"] = 0.0
+		_push_particle(core)
+	for i in range(48):
+		var angle := TAU * i / 48.0 + _rng.randf_range(-0.05, 0.05)
+		var p := _make_particle(at, color.lightened(_rng.randf_range(0.0, 0.35)))
+		p["vel"] = Vector2.from_angle(angle) * _rng.randf_range(260.0, 620.0)
+		p["life"] = _rng.randf_range(0.8, 1.4)
+		p["size"] = _rng.randf_range(5.0, 9.0)
+		p["gravity"] = 260.0
+		_push_particle(p)
+
+
 # Floating text popup rising from the well centre. `tint` may be a single
 # colour; pass Color.TRANSPARENT to use the wordmark palette per letter.
 func popup(text: String, font_size: int, tint: Color = Color.TRANSPARENT) -> void:
 	var node: Control
 	if tint == Color.TRANSPARENT:
-		node = UiStyle.make_wordmark(text, font_size)
+		node = UiStyle.make_wordmark(text, font_size, false)
 	else:
 		node = UiStyle.make_label(text, font_size, tint)
 	add_child(node)
@@ -151,6 +194,14 @@ func _push_particle(p: Dictionary) -> void:
 func tick(delta: float) -> void:
 	var busy := false
 
+	for i in range(_rockets.size() - 1, -1, -1):
+		var r: Dictionary = _rockets[i]
+		r["t"] += delta
+		if r["t"] >= r["rise"]:
+			_explode(r["apex"], r["color"])
+			_rockets.remove_at(i)
+		busy = true
+
 	for i in range(_particles.size() - 1, -1, -1):
 		var p: Dictionary = _particles[i]
 		p["age"] += delta
@@ -193,6 +244,7 @@ func tick(delta: float) -> void:
 
 func clear_all() -> void:
 	_particles.clear()
+	_rockets.clear()
 	_flashes.clear()
 	_pulses.clear()
 	_wave_t = -1.0
@@ -233,6 +285,15 @@ func _draw() -> void:
 	if _sweep_t >= 0.0:
 		var covered := well.y * minf(_sweep_t / 0.6, 1.0)
 		draw_rect(Rect2(origin, Vector2(well.x, covered)), Color(0.03, 0.04, 0.13, 0.72))
+
+	for r in _rockets:
+		var f: float = clampf(float(r["t"]) / float(r["rise"]), 0.0, 1.0)
+		# Ease-out: the rocket decelerates as it nears the apex, like the real thing.
+		var eased := 1.0 - (1.0 - f) * (1.0 - f)
+		var pos: Vector2 = Vector2(r["from"]).lerp(r["apex"], eased)
+		var color: Color = r["color"]
+		draw_line(pos, pos + Vector2(0, 44.0 * (1.0 - f)), Color(color, 0.5), 5.0)
+		draw_rect(Rect2(pos - Vector2(4, 4), Vector2(8, 8)), Color(1, 1, 1, 0.95))
 
 	for p in _particles:
 		var fade: float = 1.0 - p["age"] / p["life"]

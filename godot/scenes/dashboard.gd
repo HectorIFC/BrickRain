@@ -161,12 +161,14 @@ func _make_row(rank: int, entry: Dictionary) -> Control:
 	row.add_child(box)
 
 	# Rank and score carry the display face so the numbers read at a glance;
-	# nickname and date stay on the body font, which is legible at this size.
+	# the date stays on the body font. No nickname cell: every row here is the
+	# player's own run, so a name would repeat the "Playing as" label above.
+	# The entry keeps its nickname in the data model (cloud merge, Roku parity);
+	# only the web rendering drops it.
 	box.add_child(_cell("%d." % rank, 90, HORIZONTAL_ALIGNMENT_RIGHT, GameTheme.accent_color(), true))
-	var name_cell := _cell(str(entry["nickname"]), 0, HORIZONTAL_ALIGNMENT_LEFT, GameTheme.text_color())
-	name_cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(name_cell)
-	box.add_child(_cell(str(entry["date"]), 210, HORIZONTAL_ALIGNMENT_CENTER, GameTheme.text_color()))
+	var date_cell := _cell(str(entry["date"]), 0, HORIZONTAL_ALIGNMENT_LEFT, GameTheme.text_color())
+	date_cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(date_cell)
 	box.add_child(_cell(str(entry["score"]), 170, HORIZONTAL_ALIGNMENT_RIGHT, GameTheme.text_color(), true))
 	return row
 

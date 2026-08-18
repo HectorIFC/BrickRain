@@ -110,9 +110,21 @@ Run `make godot-play`, then:
 - [ ] The score rolls up to its new value; the HOLD slot pulses on a stash.
 - [ ] Game over sweeps the well dark before the overlay; a new record adds
       confetti and a pop alongside the fanfare.
+- [ ] After the new-record fanfare, a fireworks show starts and loops: rockets
+      whistle up from the well floor and pop into coloured radial bursts, each
+      boom-and-crackle landing exactly on its visual pop, pitch varying shot
+      to shot.
+- [ ] Leaving the overlay (Play Again, Dashboard, or a rewarded continue)
+      stops the show immediately — no stray boom afterwards. Share keeps it
+      running, since the overlay stays open.
+- [ ] The BRICKRAIN wordmark on the dashboard and the nickname screen does a
+      stadium wave — a crest travelling left to right through the letters,
+      continuously. The share card and the in-well popups stay still.
 
 ### Dashboard framing (web)
 - [ ] The list is headed **"Your best runs"** — it is the player's own history, not a
       ranking of people.
+- [ ] Rows show position, date and score only — no nickname; the current name
+      lives in the "Playing as" line above the list.
 - [ ] Off-platform (make godot-play) there is **no Friends Ranking button**; it only
       exists inside Facebook, same rule as the ad offer and Share.
