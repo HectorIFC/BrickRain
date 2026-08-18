@@ -38,6 +38,8 @@ namespace brickrain.game
             gravityAccumMs: 0,
             lockTimerMs: 0,
             lockResets: 0,
+            combo: -1,
+            b2bArmed: false,
             events: []
         }
         return spawnNext(state)
@@ -253,11 +255,23 @@ namespace brickrain.game
         rows = brickrain.board.fullRows(s.board)
         if rows.count() > 0
             s.board = brickrain.board.clearRows(s.board, rows)
-            result = brickrain.score.applyClear(s.score, rows.count())
+            ' Combo counts consecutive clearing locks; scoring reads the
+            ' PRE-clear b2b state, which is only re-armed/broken afterwards.
+            s.combo = s.combo + 1
+            result = brickrain.score.applyClear(s.score, rows.count(), s.b2bArmed, s.combo)
             s.score = result.score
-            s.events.push({ kind: "lineClear", lines: rows.count() })
+            if rows.count() = 4
+                s.b2bArmed = true
+            else
+                s.b2bArmed = false
+            end if
+            s.events.push({ kind: "lineClear", lines: rows.count(), combo: s.combo })
+            if s.combo >= 1 then s.events.push({ kind: "combo", count: s.combo })
             if result.leveledUp then s.events.push({ kind: "levelUp", level: s.score.level })
         else
+            ' A dry lock breaks the combo chain but NOT back-to-back: b2b only
+            ' breaks on an easier clear, matching the modern guideline.
+            s.combo = -1
             s.events.push({ kind: "lock" })
         end if
         s.canHold = true
@@ -313,6 +327,8 @@ namespace brickrain.game
             gravityAccumMs: state.gravityAccumMs,
             lockTimerMs: state.lockTimerMs,
             lockResets: state.lockResets,
+            combo: state.combo,
+            b2bArmed: state.b2bArmed,
             events: []
         }
     end function

@@ -22,7 +22,101 @@ namespace tests.gameCases
             { name: "game: ghost piece projects the hard-drop landing", collector: caseGhost() }
             { name: "game: preview queue matches the pieces actually dealt", collector: caseNextQueueChain() }
             { name: "game: seeded full game reproduces the exact final score", collector: caseSeededFullGame() }
+            { name: "game: combo chain builds, pays and resets on a dry lock", collector: caseComboChain() }
+            { name: "game: back-to-back quads pay 1200 and survive a dry lock", collector: caseBackToBack() }
         ]
+    end function
+
+    ' Fills row y from column fromX to toX inclusive with a settled block.
+    function prefillRow(boardState as object, y as integer, fromX as integer, toX as integer) as object
+        cells = []
+        for x = fromX to toX
+            cells.push({ x: x, y: y })
+        end for
+        return brickrain.board.withCells(boardState, cells, 1)
+    end function
+
+    function caseComboChain() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(1)
+        ' First clear: horizontal I into the 4-cell gap of the bottom row.
+        ' 20 cells of hard drop (x2 = 40) + single (100), combo 0 pays nothing.
+        s.board = prefillRow(s.board, 21, 0, 5)
+        s.active = { pieceType: "I", rotation: 0, x: 6, y: 0 }
+        s = brickrain.game.hardDrop(s)
+        tests.assert.equal(c, s.score.score, 140, "first clear: 40 drop + 100, no combo bonus")
+
+        ' Second consecutive clear: combo 1 pays 50 x 1 x level.
+        s.board = prefillRow(s.board, 21, 0, 5)
+        s.active = { pieceType: "I", rotation: 0, x: 6, y: 0 }
+        s = brickrain.game.hardDrop(s)
+        tests.assert.equal(c, s.score.score, 330, "second clear adds 40 + 100 + 50 combo")
+        tests.assert.hasEvent(c, s.events, "combo", "combo event emitted from combo 1")
+
+        ' Dry lock resets the chain.
+        s.active = { pieceType: "O", rotation: 0, x: 4, y: 0 }
+        s = brickrain.game.hardDrop(s)
+        tests.assert.equal(c, s.combo, -1, "dry lock resets combo")
+
+        ' Next clear starts over at combo 0: no bonus, no combo event.
+        s.board = prefillRow(s.board, 21, 0, 5)
+        s.active = { pieceType: "I", rotation: 0, x: 6, y: 0 }
+        s = brickrain.game.hardDrop(s)
+        tests.assert.equal(c, s.combo, 0, "chain restarts at 0")
+        hasCombo = false
+        for each event in s.events
+            if event.kind = "combo" then hasCombo = true
+        end for
+        tests.assert.isFalse(c, hasCombo, "combo 0 emits no combo event")
+        return c
+    end function
+
+    ' Drops a vertical I into the empty right column of a 4-row stack.
+    function dropQuad(s as object) as object
+        boardState = s.board
+        for y = 18 to 21
+            boardState = prefillRow(boardState, y, 0, 8)
+        end for
+        s.board = boardState
+        s.active = { pieceType: "I", rotation: 0, x: 3, y: 0 }
+        s = brickrain.game.rotateCw(s)
+        for i = 1 to 4
+            s = brickrain.game.moveRight(s)
+        end for
+        return brickrain.game.hardDrop(s)
+    end function
+
+    function caseBackToBack() as object
+        c = tests.assert.newCollector()
+        s = brickrain.game.create(1)
+
+        ' First quad: not armed yet, 36 drop + 800.
+        s.score = { score: 0, lines: 0, level: 1 }
+        s = dropQuad(s)
+        tests.assert.equal(c, s.score.score, 836, "first quad pays 800")
+
+        ' Second quad back to back: 36 drop + 1200 + 50 (combo 1).
+        s.score = { score: 0, lines: 0, level: 1 }
+        s = dropQuad(s)
+        tests.assert.equal(c, s.score.score, 1286, "b2b quad pays 1200 plus combo 1")
+
+        ' A dry lock breaks the combo but NOT the back-to-back arming.
+        s.active = { pieceType: "O", rotation: 0, x: 4, y: 0 }
+        s = brickrain.game.hardDrop(s)
+        s.score = { score: 0, lines: 0, level: 1 }
+        s = dropQuad(s)
+        tests.assert.equal(c, s.score.score, 1236, "b2b survives a dry lock; combo restarted at 0")
+
+        ' An easier clear breaks back-to-back: the next quad is back to 800.
+        s.board = prefillRow(s.board, 21, 0, 5)
+        s.active = { pieceType: "I", rotation: 0, x: 6, y: 0 }
+        s = brickrain.game.hardDrop(s)
+        s.score = { score: 0, lines: 0, level: 1 }
+        s = dropQuad(s)
+        ' Combo kept climbing through the single clear: this is its 3rd link
+        ' (combo 2), so the bonus is 100 while the quad is back to plain 800.
+        tests.assert.equal(c, s.score.score, 936, "single clear disarms b2b (36 + 800 + 100 combo)")
+        return c
     end function
 
     ' --- helpers ---

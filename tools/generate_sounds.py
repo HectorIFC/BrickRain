@@ -102,4 +102,29 @@ write_wav("new_record", sequence(
 # 9. menu_select: crisp UI click
 write_wav("menu_select", note(880, 0.04, strength=15))
 
+# 10. quad_clear: the four-line clear deserves its own fanfare — a fifth-stacked
+# burst brighter and longer than line_clear, so the game's peak moment sounds
+# like one.
+write_wav("quad_clear", sequence(
+    note(523, 0.06), note(784, 0.06), note(1047, 0.06),
+    note(1568, 0.08), note(1047, 0.06), note(1568, 0.28, 4),
+))
+
+# 11. level_whoosh: rising airy sweep matching the level-up wave crossing the
+# well (the web build plays it alongside level_up's sparkle).
+write_wav("level_whoosh", decay_envelope(
+    sweep(180, 1400, 0.30) + 0.25 * noise(0.30), 3,
+))
+
+# 12. confetti_pop: bright little burst for the new-record confetti.
+write_wav("confetti_pop", sequence(
+    decay_envelope(0.7 * noise(0.05), 14),
+    note(1319, 0.06, 6), note(1760, 0.09, 5),
+))
+
+# 13. combo: short bright blip for the combo ladder. Recorded once at a base
+# pitch; the web build raises pitch_scale roughly a semitone per combo step,
+# which is why this stays a single neutral note.
+write_wav("combo", sequence(note(988, 0.05, 10), note(1319, 0.07, 8)))
+
 print("Done.")

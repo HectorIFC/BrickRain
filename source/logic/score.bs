@@ -7,12 +7,24 @@ namespace brickrain.score
     end function
 
     ' Points awarded for clearing `clearedCount` lines at the given level.
-    function linePoints(clearedCount as integer, level as integer) as integer
+    ' A back-to-back quad (a quad with no easier clear since the last one)
+    ' pays 1.5x: 1200 x level instead of 800.
+    function linePoints(clearedCount as integer, level as integer, b2bArmed = false as boolean) as integer
         if clearedCount = 1 then return 100 * level
         if clearedCount = 2 then return 300 * level
         if clearedCount = 3 then return 500 * level
-        if clearedCount >= 4 then return 800 * level
+        if clearedCount >= 4
+            if b2bArmed then return 1200 * level
+            return 800 * level
+        end if
         return 0
+    end function
+
+    ' Bonus for the Nth consecutive clearing lock: 50 x combo x level.
+    ' combo counts from -1 (no chain); the first clear (combo 0) pays nothing.
+    function comboBonus(combo as integer, level as integer) as integer
+        if combo < 1 then return 0
+        return 50 * combo * level
     end function
 
     ' Level derived from total cleared lines: level up every 10 lines.
@@ -28,9 +40,11 @@ namespace brickrain.score
     end function
 
     ' Applies a line clear. Returns { score, leveledUp }: the new score state
-    ' and whether the clear crossed a level boundary.
-    function applyClear(scoreState as object, clearedCount as integer) as object
-        points = linePoints(clearedCount, scoreState.level)
+    ' and whether the clear crossed a level boundary. All clear-time scoring
+    ' lives here: line points (with the back-to-back multiplier) plus the
+    ' combo bonus, both computed at the PRE-clear level.
+    function applyClear(scoreState as object, clearedCount as integer, b2bArmed = false as boolean, combo = -1 as integer) as object
+        points = linePoints(clearedCount, scoreState.level, b2bArmed) + comboBonus(combo, scoreState.level)
         lines = scoreState.lines + clearedCount
         newLevel = levelForLines(lines)
         return {

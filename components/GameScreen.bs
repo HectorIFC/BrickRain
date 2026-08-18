@@ -36,7 +36,7 @@ end sub
 ' each creation so a missing resource (or a headless run) never crashes boot.
 sub preloadSounds()
     m.sounds = {}
-    names = ["move", "rotate", "hard_drop", "lock", "line_clear", "level_up", "game_over", "new_record", "menu_select"]
+    names = ["move", "rotate", "hard_drop", "lock", "line_clear", "quad_clear", "level_up", "game_over", "new_record", "menu_select"]
     for each name in names
         resource = createObject("roAudioResource", "pkg:/assets/sounds/" + name + ".wav")
         if resource <> invalid then m.sounds[name] = resource
@@ -240,7 +240,12 @@ sub playSounds(events as object)
         else if event.kind = "lock"
             playSound("lock")
         else if event.kind = "lineClear"
-            playSound("line_clear")
+            ' A quad gets its own fanfare; anything less keeps the usual chime.
+            if event.lines <> invalid and event.lines >= 4
+                playSound("quad_clear")
+            else
+                playSound("line_clear")
+            end if
         else if event.kind = "levelUp"
             playSound("level_up")
         else if event.kind = "gameOver"

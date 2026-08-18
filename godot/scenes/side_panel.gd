@@ -108,14 +108,41 @@ func set_nickname(value: String) -> void:
 	_nickname_label.text = value
 
 
+# The score rolls up to its new value instead of snapping, which gives the
+# panel a pulse of life on every lock. It only ever climbs mid-game, so a
+# lower value (a restart) snaps down instead of rolling backwards.
+var _shown_score := 0.0
+var _score_tween: Tween
+
+
 func set_stats(score: int, level: int, lines: int) -> void:
-	_score_value.text = str(score)
 	_level_value.text = str(level)
 	_lines_value.text = str(lines)
+	if _score_tween != null and _score_tween.is_valid():
+		_score_tween.kill()
+	if score <= int(_shown_score):
+		_shown_score = float(score)
+		_score_value.text = str(score)
+		return
+	_score_tween = create_tween()
+	_score_tween.tween_method(_roll_score, _shown_score, float(score), 0.3)
+
+
+func _roll_score(value: float) -> void:
+	_shown_score = value
+	_score_value.text = str(int(value))
 
 
 func set_hold(piece_type: String) -> void:
+	var changed := _hold_preview.piece_type != piece_type
 	_hold_preview.piece_type = piece_type
+	# A quick scale pulse acknowledges the stash without demanding attention.
+	if changed and piece_type != "":
+		_hold_preview.pivot_offset = _hold_preview.size * 0.5
+		_hold_preview.scale = Vector2(1.18, 1.18)
+		var tween := create_tween()
+		tween.tween_property(_hold_preview, "scale", Vector2.ONE, 0.18) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
 
 func set_next(types: Array) -> void:

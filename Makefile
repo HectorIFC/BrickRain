@@ -91,7 +91,7 @@ godot-import: godot/.godot ## Populate godot/.godot/ (needed on a fresh clone)
 godot-build: node_modules godot/.godot ## Export and package out/brickrain-web.zip
 	npm run web:build
 
-godot-test: godot/.godot ## Logic suite — 44 cases, incl. the seed-23 golden values
+godot-test: godot/.godot ## Logic suite — 47 cases, incl. the seed-23 golden values
 	npm run web:test
 
 godot-layout: godot/.godot ## Layout smoke test — screens fill, portrait/landscape flip
@@ -147,7 +147,7 @@ godot-template: ## Build the size-optimised engine template (~8 min, ~15 GB disk
 # the check that catches drift: both suites must report identical totals.
 test: roku-test godot-test ## Run both logic suites — the totals must match
 	@echo ""
-	@echo "  Both suites above must read: Cases: 44, checks: 256, failed: 0"
+	@echo "  Both suites above must read: Cases: 47, checks: 275, failed: 0"
 	@echo "  Different totals mean the two cores have drifted — see CONTRIBUTING.md"
 	@echo ""
 

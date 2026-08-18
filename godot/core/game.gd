@@ -39,6 +39,8 @@ static func create(seed: int = -1) -> Dictionary:
 		"gravity_accum_ms": 0,
 		"lock_timer_ms": 0,
 		"lock_resets": 0,
+		"combo": -1,
+		"b2b_armed": false,
 		"events": []
 	}
 	return spawn_next(state)
@@ -258,12 +260,24 @@ static func lock_active(s: Dictionary) -> Dictionary:
 	var rows := Board.full_rows(s["board"])
 	if rows.size() > 0:
 		s["board"] = Board.clear_rows(s["board"], rows)
-		var result := Score.apply_clear(s["score"], rows.size())
+		# Combo counts consecutive clearing locks; scoring reads the
+		# PRE-clear b2b state, which is only re-armed/broken afterwards.
+		s["combo"] = int(s["combo"]) + 1
+		var result := Score.apply_clear(s["score"], rows.size(), bool(s["b2b_armed"]), int(s["combo"]))
 		s["score"] = result["score"]
-		s["events"].append({"kind": "lineClear", "lines": rows.size()})
+		if rows.size() == 4:
+			s["b2b_armed"] = true
+		else:
+			s["b2b_armed"] = false
+		s["events"].append({"kind": "lineClear", "lines": rows.size(), "combo": s["combo"]})
+		if int(s["combo"]) >= 1:
+			s["events"].append({"kind": "combo", "count": s["combo"]})
 		if bool(result["leveled_up"]):
 			s["events"].append({"kind": "levelUp", "level": s["score"]["level"]})
 	else:
+		# A dry lock breaks the combo chain but NOT back-to-back: b2b only
+		# breaks on an easier clear, matching the modern guideline.
+		s["combo"] = -1
 		s["events"].append({"kind": "lock"})
 	s["can_hold"] = true
 	s["lock_timer_ms"] = 0
@@ -317,5 +331,7 @@ static func clone_state(state: Dictionary) -> Dictionary:
 		"gravity_accum_ms": state["gravity_accum_ms"],
 		"lock_timer_ms": state["lock_timer_ms"],
 		"lock_resets": state["lock_resets"],
+		"combo": state["combo"],
+		"b2b_armed": state["b2b_armed"],
 		"events": []
 	}

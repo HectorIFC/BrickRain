@@ -22,8 +22,99 @@ static func run_all() -> Array:
 		{"name": "game: hold stashes once per piece and swaps back", "collector": case_hold()},
 		{"name": "game: ghost piece projects the hard-drop landing", "collector": case_ghost()},
 		{"name": "game: preview queue matches the pieces actually dealt", "collector": case_next_queue_chain()},
-		{"name": "game: seeded full game reproduces the exact final score", "collector": case_seeded_full_game()}
+		{"name": "game: seeded full game reproduces the exact final score", "collector": case_seeded_full_game()},
+		{"name": "game: combo chain builds, pays and resets on a dry lock", "collector": case_combo_chain()},
+		{"name": "game: back-to-back quads pay 1200 and survive a dry lock", "collector": case_back_to_back()}
 	]
+
+
+# Fills row y from column from_x to to_x inclusive with a settled block.
+static func prefill_row(board_state: Dictionary, y: int, from_x: int, to_x: int) -> Dictionary:
+	var cells := []
+	for x in range(from_x, to_x + 1):
+		cells.append({"x": x, "y": y})
+	return Board.with_cells(board_state, cells, 1)
+
+
+static func case_combo_chain() -> Dictionary:
+	var c := TestAssert.new_collector()
+	var s := Game.create(1)
+	# First clear: horizontal I into the 4-cell gap of the bottom row.
+	# 20 cells of hard drop (x2 = 40) + single (100), combo 0 pays nothing.
+	s["board"] = prefill_row(s["board"], 21, 0, 5)
+	s["active"] = {"piece_type": "I", "rotation": 0, "x": 6, "y": 0}
+	s = Game.hard_drop(s)
+	TestAssert.equal(c, s["score"]["score"], 140, "first clear: 40 drop + 100, no combo bonus")
+
+	# Second consecutive clear: combo 1 pays 50 x 1 x level.
+	s["board"] = prefill_row(s["board"], 21, 0, 5)
+	s["active"] = {"piece_type": "I", "rotation": 0, "x": 6, "y": 0}
+	s = Game.hard_drop(s)
+	TestAssert.equal(c, s["score"]["score"], 330, "second clear adds 40 + 100 + 50 combo")
+	TestAssert.has_event(c, s["events"], "combo", "combo event emitted from combo 1")
+
+	# Dry lock resets the chain.
+	s["active"] = {"piece_type": "O", "rotation": 0, "x": 4, "y": 0}
+	s = Game.hard_drop(s)
+	TestAssert.equal(c, s["combo"], -1, "dry lock resets combo")
+
+	# Next clear starts over at combo 0: no bonus, no combo event.
+	s["board"] = prefill_row(s["board"], 21, 0, 5)
+	s["active"] = {"piece_type": "I", "rotation": 0, "x": 6, "y": 0}
+	s = Game.hard_drop(s)
+	TestAssert.equal(c, s["combo"], 0, "chain restarts at 0")
+	var has_combo := false
+	for event in s["events"]:
+		if event["kind"] == "combo":
+			has_combo = true
+	TestAssert.is_false(c, has_combo, "combo 0 emits no combo event")
+	return c
+
+
+# Drops a vertical I into the empty right column of a 4-row stack.
+static func drop_quad(s: Dictionary) -> Dictionary:
+	var board_state: Dictionary = s["board"]
+	for y in range(18, 22):
+		board_state = prefill_row(board_state, y, 0, 8)
+	s["board"] = board_state
+	s["active"] = {"piece_type": "I", "rotation": 0, "x": 3, "y": 0}
+	s = Game.rotate_cw(s)
+	for _i in range(4):
+		s = Game.move_right(s)
+	return Game.hard_drop(s)
+
+
+static func case_back_to_back() -> Dictionary:
+	var c := TestAssert.new_collector()
+	var s := Game.create(1)
+
+	# First quad: not armed yet, 36 drop + 800.
+	s["score"] = {"score": 0, "lines": 0, "level": 1}
+	s = drop_quad(s)
+	TestAssert.equal(c, s["score"]["score"], 836, "first quad pays 800")
+
+	# Second quad back to back: 36 drop + 1200 + 50 (combo 1).
+	s["score"] = {"score": 0, "lines": 0, "level": 1}
+	s = drop_quad(s)
+	TestAssert.equal(c, s["score"]["score"], 1286, "b2b quad pays 1200 plus combo 1")
+
+	# A dry lock breaks the combo but NOT the back-to-back arming.
+	s["active"] = {"piece_type": "O", "rotation": 0, "x": 4, "y": 0}
+	s = Game.hard_drop(s)
+	s["score"] = {"score": 0, "lines": 0, "level": 1}
+	s = drop_quad(s)
+	TestAssert.equal(c, s["score"]["score"], 1236, "b2b survives a dry lock; combo restarted at 0")
+
+	# An easier clear breaks back-to-back: the next quad is back to 800.
+	s["board"] = prefill_row(s["board"], 21, 0, 5)
+	s["active"] = {"piece_type": "I", "rotation": 0, "x": 6, "y": 0}
+	s = Game.hard_drop(s)
+	s["score"] = {"score": 0, "lines": 0, "level": 1}
+	s = drop_quad(s)
+	# Combo kept climbing through the single clear: this is its 3rd link
+	# (combo 2), so the bonus is 100 while the quad is back to plain 800.
+	TestAssert.equal(c, s["score"]["score"], 936, "single clear disarms b2b (36 + 800 + 100 combo)")
+	return c
 
 
 # --- helpers ---

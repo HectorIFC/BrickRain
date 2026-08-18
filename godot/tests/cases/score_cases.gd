@@ -10,8 +10,28 @@ static func run_all() -> Array:
 		{"name": "score: line points follow the 100/300/500/800 table", "collector": case_points()},
 		{"name": "score: level up lands exactly at 10 lines", "collector": case_level_boundary()},
 		{"name": "score: gravity speeds up and bottoms out at 80 ms", "collector": case_gravity()},
-		{"name": "score: drop bonuses are per cell", "collector": case_drop_points()}
+		{"name": "score: drop bonuses are per cell", "collector": case_drop_points()},
+		{"name": "score: back-to-back and combo bonuses", "collector": case_combo_and_b2b()}
 	]
+
+
+static func case_combo_and_b2b() -> Dictionary:
+	var c := TestAssert.new_collector()
+	# Back-to-back only multiplies quads: 1200 x level instead of 800.
+	TestAssert.equal(c, Score.line_points(4, 2, true), 2400, "b2b quad at level 2")
+	TestAssert.equal(c, Score.line_points(4, 2, false), 1600, "plain quad at level 2")
+	TestAssert.equal(c, Score.line_points(2, 3, true), 900, "b2b flag never touches non-quads")
+	# Combo ladder: -1 and 0 pay nothing, then 50 x combo x level.
+	TestAssert.equal(c, Score.combo_bonus(-1, 5), 0, "no chain, no bonus")
+	TestAssert.equal(c, Score.combo_bonus(0, 5), 0, "first clear pays nothing")
+	TestAssert.equal(c, Score.combo_bonus(1, 2), 100, "combo 1 at level 2")
+	TestAssert.equal(c, Score.combo_bonus(3, 2), 300, "combo 3 at level 2")
+	# apply_clear folds both in, at the pre-clear level.
+	var result := Score.apply_clear({"score": 0, "lines": 0, "level": 1}, 4, true, 2)
+	TestAssert.equal(c, result["score"]["score"], 1300, "b2b quad 1200 + combo 2 bonus 100")
+	result = Score.apply_clear({"score": 0, "lines": 0, "level": 1}, 1)
+	TestAssert.equal(c, result["score"]["score"], 100, "defaults keep the old behaviour")
+	return c
 
 
 static func case_points() -> Dictionary:

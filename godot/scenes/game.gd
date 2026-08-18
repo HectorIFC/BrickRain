@@ -36,6 +36,8 @@ const TENSE_STACK_ROWS := 14
 
 var _root_box: BoxContainer
 var _board_view: BoardView
+var _fx: BoardFx
+var _shake_amp := 0.0
 var _side_panel: SidePanel
 var _button_bar: BoxContainer
 var _mute_button: Button
@@ -78,6 +80,11 @@ func _build() -> void:
 	_board_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_board_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root_box.add_child(_board_view)
+
+	# Celebration overlay: child of the board so it shares its rect and its
+	# well geometry, and shakes along with it.
+	_fx = BoardFx.new()
+	_board_view.add_child(_fx)
 
 	_button_bar = BoxContainer.new()
 	_button_bar.add_theme_constant_override("separation", 10)
@@ -159,6 +166,8 @@ func start_game(nickname: String, record_score: int) -> void:
 	_state = Game.create()
 	_pause_overlay.visible = false
 	_game_over_overlay.visible = false
+	_fx.clear_all()
+	_shake_amp = 0.0
 	_running = true
 	_input.set_enabled(true)
 	# Warm an ad now so the continue offer is instant at game over, which is
@@ -172,6 +181,24 @@ func start_game(nickname: String, record_score: int) -> void:
 
 
 func _process(delta: float) -> void:
+	# One clock for everything visual: the view's smoothing and the fx
+	# timelines advance here, before the early return, so particles, sweeps
+	# and confetti keep moving through pause and game over.
+	_board_view.tick(delta)
+	_fx.tick(delta)
+
+	# Shake decays even when the game is over or paused, so the well never
+	# freezes mid-tremble.
+	if _shake_amp > 0.05:
+		_shake_amp = lerpf(_shake_amp, 0.0, minf(1.0, delta * 14.0))
+		var off := Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * _shake_amp
+		_board_view.shake_offset = off
+		_fx.position = off
+	elif _board_view.shake_offset != Vector2.ZERO:
+		_shake_amp = 0.0
+		_board_view.shake_offset = Vector2.ZERO
+		_fx.position = Vector2.ZERO
+
 	if not _running or _state.is_empty() or _state["status"] != "playing":
 		return
 	# Accumulate fractional milliseconds so slow frames never lose gravity time.
@@ -218,13 +245,101 @@ func _on_action(name: String) -> void:
 # --- state application ---
 
 
-# Adopts a new game state, plays its sounds, repaints and reacts to game over.
+# Adopts a new game state, plays its sounds and effects, repaints and reacts
+# to game over. The previous state is kept long enough to derive the geometry
+# the events do not carry (where the piece landed, which rows cleared).
 func _perform(new_state: Dictionary) -> void:
+	var prev := _state
 	_state = new_state
 	_audio.play_events(new_state["events"])
+	_drain_fx(prev, new_state)
 	_render()
 	if new_state["status"] == "gameOver":
 		_on_game_over()
+
+
+# Turns events into visuals. Landing cells and cleared rows are derived from
+# the PREVIOUS state by composing the same pure core functions the game runs
+# on — no rule duplication, and no core changes to carry extra payload.
+func _drain_fx(prev: Dictionary, s: Dictionary) -> void:
+	var events: Array = s["events"]
+	if events.is_empty() or prev.is_empty() or prev.get("active") == null:
+		return
+	var hidden := int(prev["board"]["hidden_rows"])
+
+	var kinds := {}
+	for event in events:
+		kinds[str(event["kind"])] = true
+
+	# Where the locking piece ended up: the ghost projection for a hard drop,
+	# the piece's own cells for a natural (gravity) lock.
+	var landing: Array = []
+	if kinds.has("hardDrop"):
+		landing = Game.ghost_cells(prev)
+	elif kinds.has("lock") or kinds.has("lineClear"):
+		landing = Game.active_cells(prev)
+
+	for event in events:
+		match str(event["kind"]):
+			"hardDrop":
+				_fx.hard_drop(_to_visible_cells(landing, hidden))
+			"lock":
+				_fx.lock_pulse(_to_visible_cells(landing, hidden))
+			"lineClear":
+				_fx_line_clear(prev, landing, event, hidden)
+			"combo":
+				var count := int(event["count"])
+				_fx.popup(
+					"COMBO x%d" % count,
+					mini(UiStyle.SIZE_OVERLAY_DETAIL + count * 6, 72),
+					GameTheme.accent_color()
+				)
+			"levelUp":
+				_fx.level_up()
+				_fx.popup("LEVEL %d" % int(event["level"]), 64)
+				_shake_amp = maxf(_shake_amp, 4.0)
+
+
+func _fx_line_clear(prev: Dictionary, landing: Array, event: Dictionary, hidden: int) -> void:
+	var lines := int(event["lines"])
+	# Reconstruct the board as it stood the instant the piece locked, before
+	# the rows vanished, to know which rows flashed and in what colours.
+	var settled := Board.with_cells(
+		prev["board"], landing, Piece.type_index(prev["active"]["piece_type"])
+	)
+	var rows := Board.full_rows(settled)
+	var palette := GameTheme.cell_colors()
+	var visible_rows: Array = []
+	var row_colors: Array = []
+	for row in rows:
+		var v := int(row) - hidden
+		if v < 0:
+			continue
+		visible_rows.append(v)
+		var colors: Array = []
+		for col in range(int(prev["board"]["width"])):
+			colors.append(palette[clampi(Board.cell_at(settled, col, int(row)), 0, 7)])
+		row_colors.append(colors)
+	_fx.line_clear(visible_rows, row_colors, lines)
+
+	# The points this clear earned, recomputed with the same pure functions at
+	# the pre-clear level — the event deliberately does not carry them.
+	var level := int(prev["score"]["level"])
+	var points := Score.line_points(lines, level, bool(prev["b2b_armed"])) \
+		+ Score.combo_bonus(int(event.get("combo", -1)), level)
+	_fx.popup("+%d" % points, UiStyle.SIZE_STAT_VALUE, GameTheme.text_color())
+
+	if lines >= 4:
+		_shake_amp = maxf(_shake_amp, 6.0)
+
+
+static func _to_visible_cells(cells: Array, hidden: int) -> Array:
+	var out: Array = []
+	for cell in cells:
+		var v := int(cell["y"]) - hidden
+		if v >= 0:
+			out.append({"x": cell["x"], "y": v})
+	return out
 
 
 func _render() -> void:
@@ -234,6 +349,7 @@ func _render() -> void:
 		_board_view.set_level_theme(GameTheme.board_theme_for_level(level))
 		_last_level = level
 	_board_view.set_board(_build_board_colors(_state), _build_ghost_cells(_state))
+	_push_active_piece()
 	_side_panel.set_nickname(_player_nickname)
 	_side_panel.set_stats(int(_state["score"]["score"]), level, int(_state["score"]["lines"]))
 	_side_panel.set_hold(str(_state["hold"]))
@@ -266,8 +382,10 @@ func _refresh_mute_button() -> void:
 	_mute_button.text = "MUTED" if Music.is_muted() else "SOUND"
 
 
-# Flattens the visible board plus the active piece into a row-major color-index
-# array for BoardView (hidden spawn rows are dropped).
+# Flattens the visible settled board into a row-major color-index array for
+# BoardView (hidden spawn rows are dropped). The active piece is deliberately
+# NOT baked in any more: it is handed to the view separately so its position
+# can be interpolated.
 func _build_board_colors(state: Dictionary) -> Array:
 	var board: Dictionary = state["board"]
 	var hidden := int(board["hidden_rows"])
@@ -278,14 +396,44 @@ func _build_board_colors(state: Dictionary) -> Array:
 	for v in range(vis_rows):
 		for col in range(cols):
 			flat.append(grid[(v + hidden) * cols + col])
-	if state["active"] != null:
-		var index := Piece.type_index(state["active"]["piece_type"])
-		for cell in Game.active_cells(state):
-			var v := int(cell["y"]) - hidden
-			var x := int(cell["x"])
-			if v >= 0 and v < vis_rows and x >= 0 and x < cols:
-				flat[v * cols + x] = index
 	return flat
+
+
+# Tracks what the active piece looked like last frame so the view knows when
+# to glide (plain movement), when to pop (rotation) and when to snap (a fresh
+# spawn after a lock, hard drop or hold — gliding from the lock position to
+# the spawn row would look like the piece flying backwards up the well).
+var _last_active_type := ""
+var _last_active_rot := 0
+
+
+func _push_active_piece() -> void:
+	var act = _state["active"]
+	if act == null:
+		_board_view.set_active({})
+		_last_active_type = ""
+		return
+	var kinds := {}
+	for event in _state["events"]:
+		kinds[str(event["kind"])] = true
+	var snap: bool = (
+		_last_active_type == ""
+		or kinds.has("hardDrop")
+		or kinds.has("lock")
+		or kinds.has("lineClear")
+		or kinds.has("hold")
+	)
+	var pop: bool = not snap and int(act["rotation"]) != _last_active_rot
+	_board_view.set_active({
+		"cells_rel": Piece.cells_for(act["piece_type"], int(act["rotation"])),
+		"grid_pos": Vector2(int(act["x"]), int(act["y"])),
+		"hidden": int(_state["board"]["hidden_rows"]),
+		"color_index": Piece.type_index(act["piece_type"]),
+		"snap": snap,
+		"pop": pop,
+	})
+	_last_active_type = str(act["piece_type"])
+	_last_active_rot = int(act["rotation"])
 
 
 # Ghost landing cells in visible-grid coords, excluding any that coincide with
@@ -378,9 +526,15 @@ func _on_game_over() -> void:
 	options.append({"id": "again", "label": "Play Again"})
 	options.append({"id": "dashboard", "label": "Dashboard"})
 
-	_game_over_overlay.configure("GAME OVER", detail, options)
-	_game_over_overlay.visible = true
-	_game_over_overlay.focus_first()
+	# The desaturation sweep plays first; the overlay lands just after it, so
+	# the end of the run reads as a beat rather than a jump cut.
+	_fx.game_over_sweep()
+	var overlay_timer := get_tree().create_timer(0.65)
+	overlay_timer.timeout.connect(func() -> void:
+		_game_over_overlay.configure("GAME OVER", detail, options)
+		_game_over_overlay.visible = true
+		_game_over_overlay.focus_first()
+	)
 
 	game_finished.emit({
 		"nickname": _player_nickname,
@@ -393,6 +547,8 @@ func _on_game_over() -> void:
 func _on_record_timer() -> void:
 	if _pending_record:
 		_audio.play("new_record")
+		_audio.play("confetti_pop")
+		_fx.confetti()
 		_pending_record = false
 
 

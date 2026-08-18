@@ -54,7 +54,7 @@ logic suites plus the web layout smoke test. Without make:
 npm run lint              # BrighterScript validation + bslint must be clean
 npm run test:logic        # the full headless logic suite must pass
 npm run build             # the channel must build
-npm run web:test          # the ported logic suite (same 44 cases)
+npm run web:test          # the ported logic suite (same 47 cases)
 npm run web:test:layout   # screens fill the viewport; portrait/landscape flip
 ```
 

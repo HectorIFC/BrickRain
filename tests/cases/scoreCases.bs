@@ -10,7 +10,27 @@ namespace tests.scoreCases
             { name: "score: level up lands exactly at 10 lines", collector: caseLevelBoundary() }
             { name: "score: gravity speeds up and bottoms out at 80 ms", collector: caseGravity() }
             { name: "score: drop bonuses are per cell", collector: caseDropPoints() }
+            { name: "score: back-to-back and combo bonuses", collector: caseComboAndB2b() }
         ]
+    end function
+
+    function caseComboAndB2b() as object
+        c = tests.assert.newCollector()
+        ' Back-to-back only multiplies quads: 1200 x level instead of 800.
+        tests.assert.equal(c, brickrain.score.linePoints(4, 2, true), 2400, "b2b quad at level 2")
+        tests.assert.equal(c, brickrain.score.linePoints(4, 2, false), 1600, "plain quad at level 2")
+        tests.assert.equal(c, brickrain.score.linePoints(2, 3, true), 900, "b2b flag never touches non-quads")
+        ' Combo ladder: -1 and 0 pay nothing, then 50 x combo x level.
+        tests.assert.equal(c, brickrain.score.comboBonus(-1, 5), 0, "no chain, no bonus")
+        tests.assert.equal(c, brickrain.score.comboBonus(0, 5), 0, "first clear pays nothing")
+        tests.assert.equal(c, brickrain.score.comboBonus(1, 2), 100, "combo 1 at level 2")
+        tests.assert.equal(c, brickrain.score.comboBonus(3, 2), 300, "combo 3 at level 2")
+        ' applyClear folds both in, at the pre-clear level.
+        result = brickrain.score.applyClear({ score: 0, lines: 0, level: 1 }, 4, true, 2)
+        tests.assert.equal(c, result.score.score, 1300, "b2b quad 1200 + combo 2 bonus 100")
+        result = brickrain.score.applyClear({ score: 0, lines: 0, level: 1 }, 1)
+        tests.assert.equal(c, result.score.score, 100, "defaults keep the old behaviour")
+        return c
     end function
 
     function casePoints() as object
