@@ -11,7 +11,7 @@ done by a human with access to the Facebook developer account.
 ## Build the bundle
 
 ```bash
-make godot-test     # 44 logic cases, including the seed-23 golden values
+make godot-test     # 47 logic cases, including the seed-23 golden values
 make godot-layout   # screens fill the viewport; portrait/landscape flip
 make godot-build    # export + package -> out/brickrain-web.zip
 make godot-play     # ...or build it and play it locally in one step
@@ -39,7 +39,7 @@ off the whole bundle — measured on the current content, music included:
 | | raw | gzip | brotli |
 |---|---:|---:|---:|
 | stock | 38.85 MB | 10.47 MB | 7.42 MB |
-| stripped | 27.86 MB | 7.70 MB | **5.56 MB** |
+| stripped | 27.91 MB | 7.72 MB | **5.59 MB** |
 | saving | 10.99 MB | 2.77 MB | 1.86 MB (25%) |
 
 ```bash
@@ -260,7 +260,7 @@ They are different products and both are intentional.
 ## Known limits
 
 - **First load takes longer than the 3 s the PRD asked for on a typical mobile
-  connection.** At 5.56 MB brotli it
+  connection.** At 5.59 MB brotli it
   is roughly 4.9 s of transfer at 9 Mbps plus ~2 s of engine boot. It meets <3 s above
   ~50 Mbps and on every cached repeat load. The stripped template was the last significant
   lever; further gains would mean cutting engine features the game uses, or shortening the

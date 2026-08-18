@@ -94,3 +94,19 @@ Run `make godot-play`, then:
 - [ ] The loading screen shows the BrickRain splash, not the Godot logo.
 - [ ] Resize the window to portrait and to landscape: the panel and well
       rearrange, and the well always stays fully on screen.
+
+### Celebration effects & sounds (added with combo scoring)
+- [ ] Clearing a line flashes the row, bursts particles in the pieces' colours
+      and floats "+points" up from the well; no screen shake for 1-3 lines.
+- [ ] A quad (4 lines) plays its own fanfare (`quad_clear`, brighter and longer
+      than the normal chime) and briefly shakes the well — panel and buttons
+      stay still.
+- [ ] Consecutive clears show "COMBO xN" and the combo blip rises in pitch with
+      each step; a piece that locks without clearing resets the chain.
+- [ ] Level up: "LEVEL N" in wordmark colours crosses the well with a colour
+      wave, a whoosh, and a light shake.
+- [ ] The active piece glides between cells instead of teleporting, pops
+      slightly on rotation, and drops instantly on hard drop.
+- [ ] The score rolls up to its new value; the HOLD slot pulses on a stash.
+- [ ] Game over sweeps the well dark before the overlay; a new record adds
+      confetti and a pop alongside the fanfare.
