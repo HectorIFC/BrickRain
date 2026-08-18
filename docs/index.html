@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>BrickRain — a falling-blocks game for Roku TV</title>
+    <title>BrickRain - a falling-blocks game for Roku TV</title>
     <meta name="description" content="BrickRain is an open-source falling-blocks game for Roku TV, built in BrighterScript with a pure, fully unit-tested logic core." />
     <link rel="icon" type="image/png" href="images/wordmark.png" />
     <link rel="stylesheet" href="style.css" />
@@ -14,7 +14,7 @@
         <img class="hero__art" src="images/hero.png" alt="BrickRain pixel-art wordmark over falling tetrominoes" />
         <div class="hero__overlay">
             <h1 class="hero__title">BRICK<span>RAIN</span></h1>
-            <p class="hero__tagline">A falling-blocks game for Roku TV — pixel art, chiptune sound, zero network.</p>
+            <p class="hero__tagline">A falling-blocks game for Roku TV - pixel art, chiptune sound, zero network.</p>
             <p class="badges">
                 <a href="https://github.com/HectorIFC/BrickRain/actions/workflows/ci.yml"><img src="https://github.com/HectorIFC/BrickRain/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
                 <a href="https://github.com/HectorIFC/BrickRain/releases"><img src="https://img.shields.io/github/v/release/HectorIFC/BrickRain?label=release" alt="Latest release" /></a>
@@ -40,7 +40,7 @@
             -->
             <div class="placeholder">
                 <span class="placeholder__icon">▶</span>
-                <p>Gameplay video on a real Roku TV — coming soon</p>
+                <p>Gameplay video on a real Roku TV - coming soon</p>
             </div>
         </section>
 
@@ -71,7 +71,7 @@
                 <li>Super Rotation System (SRS) with standard wall kicks; a ghost piece shows the landing spot.</li>
                 <li>Hold one piece (once per piece); the next 3 pieces are previewed.</li>
                 <li>Line clears score 100 / 300 / 500 / 800 &times; level for 1 / 2 / 3 / 4 lines; soft drop +1, hard drop +2 per cell.</li>
-                <li>Level up every 10 cleared lines — gravity accelerates and the well changes theme.</li>
+                <li>Level up every 10 cleared lines - gravity accelerates and the well changes theme.</li>
                 <li>High scores persist on the device; the dashboard ranks them by score.</li>
             </ul>
         </section>
@@ -102,15 +102,15 @@ npm run test:logic            # run the full logic suite headless (no device)</c
         <section class="section" id="architecture">
             <h2>Architecture &amp; credits</h2>
             <p>BrickRain is split into a <strong>pure functional core</strong>
-               (<code>source/logic/</code> — plain data in, plain data out, no SceneGraph
+               (<code>source/logic/</code> - plain data in, plain data out, no SceneGraph
                dependencies) and a thin <strong>imperative shell</strong>
-               (<code>components/</code> — SceneGraph nodes that render state and forward input).
+               (<code>components/</code> - SceneGraph nodes that render state and forward input).
                That separation is what makes the whole game testable without a device: the core
                is covered by Rooibos and a headless brs-node suite. See the
                <a href="https://github.com/HectorIFC/BrickRain#readme">README</a> for the deep dive.</p>
             <p>All artwork and audio are <strong>original</strong>, generated from scratch by the
                scripts in <code>tools/</code> (<code>generate_artwork.py</code>,
-               <code>generate_sounds.py</code>) — no third-party assets, no copyright concerns.</p>
+               <code>generate_sounds.py</code>) - no third-party assets, no copyright concerns.</p>
         </section>
     </main>
 

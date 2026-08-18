@@ -73,7 +73,7 @@ namespace brickrain.leaderboard
     end function
 
     ' The top (rank 1) score on the leaderboard, or 0 when it is empty. This is
-    ' the record to beat — entries are kept sorted by score descending, so the
+    ' the record to beat - entries are kept sorted by score descending, so the
     ' first entry holds the highest score.
     function topScore(leaderboardState as object) as integer
         if leaderboardState.entries.count() = 0 then return 0
@@ -142,7 +142,7 @@ namespace brickrain.leaderboard
     end function
 
     ' The stored level, or 0 for entries persisted before the field existed (or
-    ' carrying a malformed value) — "unknown", never a made-up number.
+    ' carrying a malformed value) - "unknown", never a made-up number.
     function entryLevel(entry as object) as integer
         if isNumber(entry.level) then return int(entry.level)
         return 0

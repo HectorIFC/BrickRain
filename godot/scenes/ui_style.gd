@@ -5,14 +5,14 @@ extends RefCounted
 #
 # This is deliberately NOT part of core/theme.gd. That file mirrors
 # source/theme.bs one-for-one and holds the *game* palette, which both
-# implementations must agree on. UI typography is web-only — putting it there
+# implementations must agree on. UI typography is web-only - putting it there
 # would create exactly the drift CONTRIBUTING.md warns about.
 #
 # Sizes are in the 1080x1920 design space. The project stretches with
 # canvas_items/expand, so they scale proportionally on any viewport; what
 # matters is the ratio to the 1080 width, not the pixel value on your monitor.
 #
-# TitanOne is used only for display text. It is a heavy rounded display face —
+# TitanOne is used only for display text. It is a heavy rounded display face -
 # excellent for the wordmark, score and buttons, poor for the small leaderboard
 # rows and validation messages, which stay on the default font.
 
@@ -87,7 +87,7 @@ static func make_button(text: String, size: int = SIZE_BUTTON) -> Button:
 # same trick tools/generate_artwork.py uses for the splash. Index 0 of the
 # palette is the empty-cell color, so letters cycle through 1..7.
 #
-# By default the letters do a stadium wave — a pulse travelling left to right,
+# By default the letters do a stadium wave - a pulse travelling left to right,
 # each letter's bob phase-delayed from the previous one. Pass animated = false
 # where motion would be wrong: the share card (rendered once to a texture) and
 # the BoardFx popups (they already have their own rise-and-fade motion).
@@ -109,7 +109,7 @@ static func make_wordmark(text: String, size: int = SIZE_WORDMARK, animated: boo
 class WordmarkWave extends HBoxContainer:
 	# The "ola": each letter rides a sine wave, phase-shifted by its index so
 	# the crest travels across the word. Base positions are captured after the
-	# container sorts its children — the idiomatic way to animate children of a
+	# container sorts its children - the idiomatic way to animate children of a
 	# Container without fighting its layout.
 	const PERIOD_S := 1.8
 	const PHASE_PER_LETTER := 0.55

@@ -2,7 +2,7 @@
 """Generates BrickRain's background music: an original chiptune loop.
 
 Synthesised from square/triangle/noise oscillators, the same approach
-generate_sounds.py uses for the nine sound effects — so the music is original,
+generate_sounds.py uses for the nine sound effects - so the music is original,
 reproducible from this repository, and sits in the same sonic palette as the
 effects rather than fighting them.
 
@@ -14,7 +14,7 @@ The loop is seamless by construction: any note whose tail runs past the end
 wraps around and is summed into the beginning, so the last sample flows into
 the first with no discontinuity.
 
-Output goes to godot/music/, NOT assets/ — the Roku channel has no music, and
+Output goes to godot/music/, NOT assets/ - the Roku channel has no music, and
 bsconfig.json globs assets/**/* straight into the channel zip.
 
 Usage:
@@ -38,7 +38,7 @@ SR = 44100
 BPM = 128
 BEAT = 60.0 / BPM
 BAR = 4 * BEAT
-# Three 16-bar sections. 48 bars at 128 BPM is exactly 90 s — long enough to
+# Three 16-bar sections. 48 bars at 128 BPM is exactly 90 s - long enough to
 # hold a session without the loop announcing itself, which 30 s of one repeated
 # progression did. Each section has its own harmony and density so the track
 # travels somewhere instead of restating the same four bars twelve times.
@@ -99,7 +99,7 @@ def bar_plan() -> list:
     makes the shape of the track readable at a glance, and easy to retune.
     """
     plan = []
-    # A — opens sparse and builds, so the loop point is the quietest moment.
+    # A - opens sparse and builds, so the loop point is the quietest moment.
     for bar in range(SECTION_BARS):
         phrase = bar // 4
         plan.append({
@@ -109,7 +109,7 @@ def bar_plan() -> list:
             "drums": phrase >= 1,
             "hats": phrase >= 2,
         })
-    # B — full energy from the downbeat, busier melody.
+    # B - full energy from the downbeat, busier melody.
     for bar in range(SECTION_BARS):
         plan.append({
             "chord": CHORDS_B[bar % 4],
@@ -118,7 +118,7 @@ def bar_plan() -> list:
             "drums": True,
             "hats": True,
         })
-    # C — bridge: drops out, then rebuilds so it hands back to A with momentum.
+    # C - bridge: drops out, then rebuilds so it hands back to A with momentum.
     for bar in range(SECTION_BARS):
         phrase = bar // 4
         plan.append({

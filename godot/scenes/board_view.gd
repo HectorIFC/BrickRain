@@ -5,7 +5,7 @@ extends Control
 #
 # The Roku version (components/BoardView.bs) pools 200 Rectangle nodes because
 # SceneGraph has no immediate mode. Godot does, so this is a single Control
-# that redraws in _draw() — fewer nodes, less bookkeeping, and the geometry can
+# that redraws in _draw() - fewer nodes, less bookkeeping, and the geometry can
 # be recomputed for any viewport size, which is what FR03 needs.
 
 const COLS := 10
@@ -40,7 +40,7 @@ var _pop_t := -1.0
 
 
 # `data` empty hides the piece. snap=true lands instantly (spawn, hard drop);
-# pop=true plays the 40 ms scale pop that stands in for rotation tweening —
+# pop=true plays the 40 ms scale pop that stands in for rotation tweening -
 # genuinely rotating the drawing would be wrong, since SRS kicks translate too.
 func set_active(data: Dictionary) -> void:
 	if data.is_empty():

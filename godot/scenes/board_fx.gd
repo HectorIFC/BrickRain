@@ -104,7 +104,7 @@ func confetti() -> void:
 
 # One firework of the record celebration: a rocket streaks up from the well
 # floor and pops into a radial burst at a random apex. The caller fixes rise_s
-# so it can schedule the burst sound for the same instant — sound and visual
+# so it can schedule the burst sound for the same instant - sound and visual
 # stay in sync by construction, no signal needed.
 func firework(color: Color, rise_s: float) -> void:
 	var m := _metrics()
@@ -124,7 +124,7 @@ func firework(color: Color, rise_s: float) -> void:
 
 func _explode(at: Vector2, color: Color) -> void:
 	# Sizes and speeds live in the 1080x1920 design space, so the burst has to
-	# be sized against the well (~900 wide), not against a cell — the first cut
+	# be sized against the well (~900 wide), not against a cell - the first cut
 	# used cell-scale numbers and read as a barely-visible speck.
 	# A brief white core so the pop reads as a flash, then the colored ring.
 	for _i in range(8):

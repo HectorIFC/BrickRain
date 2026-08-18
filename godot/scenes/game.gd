@@ -5,7 +5,7 @@ extends Control
 # frame produces a fresh game state (with an events list); this scene reflects
 # that state into the board and side panel and plays the matching sounds.
 #
-# Mirrors components/GameScreen.bs. The pure core is untouched — this layer
+# Mirrors components/GameScreen.bs. The pure core is untouched - this layer
 # only injects time and input and renders what comes back.
 
 signal game_finished(result: Dictionary)
@@ -37,7 +37,7 @@ var _portrait := true
 var _continue_used := false
 
 # A stack this many rows tall (of 20 visible) switches the music to its tense
-# variant — pitched up with the low-pass closed in, not a second track.
+# variant - pitched up with the low-pass closed in, not a second track.
 const TENSE_STACK_ROWS := 14
 
 var _root_box: BoxContainer
@@ -274,7 +274,7 @@ func _perform(new_state: Dictionary) -> void:
 
 # Turns events into visuals. Landing cells and cleared rows are derived from
 # the PREVIOUS state by composing the same pure core functions the game runs
-# on — no rule duplication, and no core changes to carry extra payload.
+# on - no rule duplication, and no core changes to carry extra payload.
 func _drain_fx(prev: Dictionary, s: Dictionary) -> void:
 	var events: Array = s["events"]
 	if events.is_empty() or prev.is_empty() or prev.get("active") == null:
@@ -339,7 +339,7 @@ func _fx_line_clear(prev: Dictionary, landing: Array, event: Dictionary, hidden:
 	_fx.line_clear(visible_rows, row_colors, lines)
 
 	# The points this clear earned, recomputed with the same pure functions at
-	# the pre-clear level — the event deliberately does not carry them.
+	# the pre-clear level - the event deliberately does not carry them.
 	var level := int(prev["score"]["level"])
 	var points := Score.line_points(lines, level, bool(prev["b2b_armed"])) \
 		+ Score.combo_bonus(int(event.get("combo", -1)), level)
@@ -417,7 +417,7 @@ func _build_board_colors(state: Dictionary) -> Array:
 
 # Tracks what the active piece looked like last frame so the view knows when
 # to glide (plain movement), when to pop (rotation) and when to snap (a fresh
-# spawn after a lock, hard drop or hold — gliding from the lock position to
+# spawn after a lock, hard drop or hold - gliding from the lock position to
 # the spawn row would look like the piece flying backwards up the well).
 var _last_active_type := ""
 var _last_active_rot := 0
@@ -649,7 +649,7 @@ func _on_reward_failed(code: String) -> void:
 
 
 func _on_game_over_overlay_refresh(code: String) -> void:
-	var note := "Ad not completed — no continue."
+	var note := "Ad not completed. No continue."
 	if code == "ADS_NOT_LOADED" or code == "UNAVAILABLE":
 		note = "No ad available right now."
 	var final_score := int(_state["score"]["score"])

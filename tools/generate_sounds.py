@@ -46,7 +46,7 @@ def sequence(*parts: np.ndarray) -> np.ndarray:
 
 def crackle(duration: float) -> np.ndarray:
     """Firework crackle tail: short random noise snaps whose density and
-    loudness decay over the duration — the third layer of a real burst."""
+    loudness decay over the duration - the third layer of a real burst."""
     rng = np.random.default_rng(20260818)
     out = np.zeros(int(SAMPLE_RATE * duration))
     t = 0.0
@@ -120,7 +120,7 @@ write_wav("new_record", sequence(
 # 9. menu_select: crisp UI click
 write_wav("menu_select", note(880, 0.04, strength=15))
 
-# 10. quad_clear: the four-line clear deserves its own fanfare — a fifth-stacked
+# 10. quad_clear: the four-line clear deserves its own fanfare - a fifth-stacked
 # burst brighter and longer than line_clear, so the game's peak moment sounds
 # like one.
 write_wav("quad_clear", sequence(
@@ -151,7 +151,7 @@ write_wav("firework_launch", decay_envelope(
     sweep(300, 1000, 0.40) + 0.15 * noise(0.40), 2,
 ))
 
-# 15. firework_burst: the three layers of a real firework — low boom for
+# 15. firework_burst: the three layers of a real firework - low boom for
 # weight, a mid noise burst for mass, then the crackle tail of random snaps.
 write_wav("firework_burst", sequence(
     decay_envelope(sine_wave(70, 0.25) + 0.7 * noise(0.25), 9),

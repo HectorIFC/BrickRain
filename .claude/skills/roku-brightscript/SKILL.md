@@ -1,6 +1,6 @@
 ---
 name: roku-brightscript
-description: Conventions and gotchas for Roku development in this repo — BrightScript/BrighterScript syntax, SceneGraph patterns, Rooibos testing, roku-deploy usage. Consult before writing or editing any .bs, .brs or SceneGraph .xml file.
+description: Conventions and gotchas for Roku development in this repo - BrightScript/BrighterScript syntax, SceneGraph patterns, Rooibos testing, roku-deploy usage. Consult before writing or editing any .bs, .brs or SceneGraph .xml file.
 ---
 
 # Roku / BrightScript conventions for BrickRain
@@ -23,7 +23,7 @@ description: Conventions and gotchas for Roku development in this repo — Brigh
 ## Authoritative references (fetch when unsure about an API)
 - SceneGraph API: https://developer.roku.com/docs/references/scenegraph/component-functions/init.md
 - BrightScript language: https://developer.roku.com/docs/references/brightscript/language/brightscript-language-reference.md
-- Remote key handling: onKeyEvent — https://developer.roku.com/docs/developer-program/core-concepts/handling-application-events.md
+- Remote key handling: onKeyEvent - https://developer.roku.com/docs/developer-program/core-concepts/handling-application-events.md
 - Rooibos: https://github.com/rokucommunity/rooibos
 - roku-deploy: https://github.com/rokucommunity/roku-deploy
 

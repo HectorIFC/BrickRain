@@ -27,7 +27,7 @@ static func equal(c: Dictionary, actual, expected, label: String) -> void:
 	c["checks"] = int(c["checks"]) + 1
 	if not values_equal(actual, expected):
 		c["failures"].append(
-			label + " — expected " + to_debug_string(expected) + ", got " + to_debug_string(actual)
+			label + " - expected " + to_debug_string(expected) + ", got " + to_debug_string(actual)
 		)
 
 
@@ -38,7 +38,7 @@ static func contains_cell(c: Dictionary, cells: Array, x: int, y: int, label: St
 		if int(cell["x"]) == x and int(cell["y"]) == y:
 			return
 	c["failures"].append(
-		label + " — cell (" + str(x) + "," + str(y) + ") not found in " + to_debug_string(cells)
+		label + " - cell (" + str(x) + "," + str(y) + ") not found in " + to_debug_string(cells)
 	)
 
 
@@ -47,7 +47,7 @@ static func same_cells(c: Dictionary, actual: Array, expected: Array, label: Str
 	c["checks"] = int(c["checks"]) + 1
 	if actual.size() != expected.size():
 		c["failures"].append(
-			label + " — expected " + str(expected.size()) + " cells, got " + str(actual.size())
+			label + " - expected " + str(expected.size()) + " cells, got " + str(actual.size())
 		)
 		return
 	for want in expected:
@@ -57,7 +57,7 @@ static func same_cells(c: Dictionary, actual: Array, expected: Array, label: Str
 				found = true
 		if not found:
 			c["failures"].append(
-				label + " — missing cell (" + str(want["x"]) + "," + str(want["y"]) + ")"
+				label + " - missing cell (" + str(want["x"]) + "," + str(want["y"]) + ")"
 			)
 			return
 
@@ -69,7 +69,7 @@ static func has_event(c: Dictionary, events: Array, kind: String, label: String)
 		if event["kind"] == kind:
 			return
 	c["failures"].append(
-		label + " — event '" + kind + "' not found in " + to_debug_string(events)
+		label + " - event '" + kind + "' not found in " + to_debug_string(events)
 	)
 
 

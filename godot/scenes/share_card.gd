@@ -3,7 +3,7 @@ extends RefCounted
 
 # Renders the end-of-game result as a PNG, base64-encoded for FBInstant.
 #
-# shareAsync requires an image, and text can only be drawn by a CanvasItem —
+# shareAsync requires an image, and text can only be drawn by a CanvasItem -
 # there is no way to compose this straight into an Image. So the card is built
 # as a normal Control inside a SubViewport, rendered for one frame, and read
 # back as pixels.

@@ -6,7 +6,7 @@
 //
 // The custom template (tools/build_web_template.sh) is a build artifact with a
 // machine-specific absolute path, so it cannot simply be committed into
-// export_presets.cfg — a checkout without the template would fail to export.
+// export_presets.cfg - a checkout without the template would fail to export.
 // Instead the preset is patched in place for the duration of the export and
 // restored afterwards, so the committed config always works from a clean
 // clone.

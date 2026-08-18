@@ -19,7 +19,7 @@ namespace tests.assert
     sub equal(c as object, actual as dynamic, expected as dynamic, label as string)
         c.checks = c.checks + 1
         if not valuesEqual(actual, expected)
-            c.failures.push(label + " — expected " + toDebugString(expected) + ", got " + toDebugString(actual))
+            c.failures.push(label + " - expected " + toDebugString(expected) + ", got " + toDebugString(actual))
         end if
     end sub
 
@@ -29,14 +29,14 @@ namespace tests.assert
         for each cell in cells
             if cell.x = x and cell.y = y then return
         end for
-        c.failures.push(label + " — cell (" + x.toStr() + "," + y.toStr() + ") not found in " + toDebugString(cells))
+        c.failures.push(label + " - cell (" + x.toStr() + "," + y.toStr() + ") not found in " + toDebugString(cells))
     end sub
 
     ' Asserts that two cells arrays contain the same set of coordinates.
     sub sameCells(c as object, actual as object, expected as object, label as string)
         c.checks = c.checks + 1
         if actual.count() <> expected.count()
-            c.failures.push(label + " — expected " + expected.count().toStr() + " cells, got " + actual.count().toStr())
+            c.failures.push(label + " - expected " + expected.count().toStr() + " cells, got " + actual.count().toStr())
             return
         end if
         for each want in expected
@@ -45,7 +45,7 @@ namespace tests.assert
                 if cell.x = want.x and cell.y = want.y then found = true
             end for
             if not found
-                c.failures.push(label + " — missing cell (" + want.x.toStr() + "," + want.y.toStr() + ")")
+                c.failures.push(label + " - missing cell (" + want.x.toStr() + "," + want.y.toStr() + ")")
                 return
             end if
         end for
@@ -57,7 +57,7 @@ namespace tests.assert
         for each event in events
             if event.kind = kind then return
         end for
-        c.failures.push(label + " — event '" + kind + "' not found in " + toDebugString(events))
+        c.failures.push(label + " - event '" + kind + "' not found in " + toDebugString(events))
     end sub
 
     function valuesEqual(a as dynamic, b as dynamic) as boolean

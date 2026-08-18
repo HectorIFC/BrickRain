@@ -138,7 +138,7 @@ static func state_with_piece(piece_type: String, x: int, y: int) -> Dictionary:
 # Deterministic scripted game: a tiny greedy bot drives every piece, in
 # spawn orientation, to the column that minimizes holes and stack height
 # (favoring clears). It clears lines along the way but cannot rotate, so
-# S/Z hole buildup eventually tops the game out — a full playthrough.
+# S/Z hole buildup eventually tops the game out - a full playthrough.
 static func play_scripted_game(seed: int) -> Dictionary:
 	var s := Game.create(seed)
 	var pieces := 0
@@ -456,7 +456,7 @@ static func case_seeded_full_game() -> Dictionary:
 	)
 	TestAssert.equal(c, second["pieces"], first["pieces"], "same seed, same piece count")
 	# Golden values pin the exact outcome of seed 23 with this bot. They are
-	# asserted identically in tests/cases/gameCases.bs — if these two ever
+	# asserted identically in tests/cases/gameCases.bs - if these two ever
 	# disagree, the Roku and Godot cores have drifted apart.
 	TestAssert.equal(c, first["state"]["score"]["score"], 1538, "golden final score")
 	TestAssert.equal(c, first["state"]["score"]["lines"], 5, "golden line count")

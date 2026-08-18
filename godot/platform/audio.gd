@@ -3,7 +3,7 @@ extends Node
 
 # Sound-effect playback. One AudioStreamPlayer per effect so overlapping
 # events (a move landing on the same frame as a lock) do not cut each other
-# off — the Roku build gets this for free from cached roAudioResource objects.
+# off - the Roku build gets this for free from cached roAudioResource objects.
 #
 # Trigger points mirror components/GameScreen.bs:playSounds.
 

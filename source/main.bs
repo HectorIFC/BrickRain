@@ -1,5 +1,5 @@
 ' Channel entry point: creates the SceneGraph screen, shows MainScene and
-' pumps the event loop until the screen is closed. Kept deliberately tiny —
+' pumps the event loop until the screen is closed. Kept deliberately tiny -
 ' all behavior lives in the components and the pure logic core.
 sub main()
     screen = createObject("roSGScreen")

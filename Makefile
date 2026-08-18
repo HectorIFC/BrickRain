@@ -1,10 +1,10 @@
-# BrickRain — entry point for both implementations.
+# BrickRain - entry point for both implementations.
 #
 # This repository holds TWO independent games that build, test and ship
 # separately:
 #
-#   Roku   — the BrightScript/SceneGraph channel at the repository root
-#   Godot  — the web game under godot/, targeting Facebook Instant Games
+#   Roku   - the BrightScript/SceneGraph channel at the repository root
+#   Godot  - the web game under godot/, targeting Facebook Instant Games
 #
 # Every platform-specific target is prefixed accordingly, so it is never
 # ambiguous which game a command acts on. Only genuinely cross-platform work
@@ -32,7 +32,7 @@ MUSIC := godot/music/theme.ogg
 	godot-import godot-build godot-test godot-layout godot-play godot-serve \
 	godot-play-clean godot-capture \
 	godot-assets godot-template godot-controls \
-	test check doctor clean clean-all
+	test check no-dashes doctor clean clean-all
 
 # --------------------------------------------------------------------------
 ##@ Getting started
@@ -48,7 +48,7 @@ help: ## Show this help
 	@echo ""
 
 # --------------------------------------------------------------------------
-##@ Roku — BrightScript channel
+##@ Roku - BrightScript channel
 # --------------------------------------------------------------------------
 
 roku-lint: node_modules ## BrighterScript validation + bslint
@@ -74,7 +74,7 @@ roku-play: roku-build ## Build, then play in the brs-engine web app
 
 roku-deploy: node_modules ## Sideload onto a device (requires .env)
 	@test -f .env || { \
-		echo "missing .env — copy .env.example and fill in your device address"; \
+		echo "missing .env - copy .env.example and fill in your device address"; \
 		exit 1; \
 	}
 	npm run deploy
@@ -84,7 +84,7 @@ roku-assets: ## Regenerate the channel's sounds and artwork
 	python3 tools/generate_artwork.py --target roku
 
 # --------------------------------------------------------------------------
-##@ Godot — web / Facebook Instant Games
+##@ Godot - web / Facebook Instant Games
 # --------------------------------------------------------------------------
 
 godot-import: godot/.godot ## Populate godot/.godot/ (needed on a fresh clone)
@@ -92,10 +92,10 @@ godot-import: godot/.godot ## Populate godot/.godot/ (needed on a fresh clone)
 godot-build: node_modules godot/.godot ## Export and package out/brickrain-web.zip
 	npm run web:build
 
-godot-test: godot/.godot ## Logic suite — 48 cases, incl. the seed-23 golden values
+godot-test: godot/.godot ## Logic suite - 48 cases, incl. the seed-23 golden values
 	npm run web:test
 
-godot-layout: godot/.godot ## Layout smoke test — screens fill, portrait/landscape flip
+godot-layout: godot/.godot ## Layout smoke test - screens fill, portrait/landscape flip
 	npm run web:test:layout
 
 godot-play: godot-build godot-controls ## Build, serve, and open the browser
@@ -105,12 +105,12 @@ godot-play: godot-build godot-controls ## Build, serve, and open the browser
 		cd $(WEB_DIR) && python3 -m http.server $(PORT)
 
 # Browser storage (IndexedDB) is partitioned per ORIGIN, and the port is part
-# of the origin — so a throwaway random port gives an empty save: no nickname,
+# of the origin - so a throwaway random port gives an empty save: no nickname,
 # no runs, record 0. Perfect for manually testing the first-run flow, the
 # "record to beat" logic and the new-record fireworks without touching code.
 godot-play-clean: godot-build godot-controls ## Play with EMPTY storage (fresh throwaway origin)
 	@P=$$((20000 + $$RANDOM % 20000)); \
-	echo "  Fresh origin http://127.0.0.1:$$P — nickname, runs and record start empty"; \
+	echo "  Fresh origin http://127.0.0.1:$$P - nickname, runs and record start empty"; \
 	echo ""; \
 	( command -v open >/dev/null 2>&1 && sleep 1 && open "http://127.0.0.1:$$P" ) & \
 	cd $(WEB_DIR) && python3 -m http.server $$P
@@ -121,12 +121,12 @@ godot-capture: godot/.godot ## Record the fast effects as PNG frames (build/capt
 	@rm -rf build/captures && mkdir -p build/captures
 	$(GODOT) --path godot --write-movie ../build/captures/fx.png --fixed-fps 30 res://tests/FxCapture.tscn
 	@echo ""
-	@echo "  Frames in build/captures/ — fx00000018.png is ~0.6s (LEVEL popup),"
+	@echo "  Frames in build/captures/ - fx00000018.png is ~0.6s (LEVEL popup),"
 	@echo "  fx00000090.png onward is the fireworks show."
 
 godot-serve: ## Serve the last build without rebuilding
 	@test -f $(WEB_DIR)/index.html || { \
-		echo "no build found in $(WEB_DIR) — run 'make godot-build' first"; \
+		echo "no build found in $(WEB_DIR) - run 'make godot-build' first"; \
 		exit 1; \
 	}
 	@$(MAKE) --no-print-directory godot-controls
@@ -166,13 +166,29 @@ godot-template: ## Build the size-optimised engine template (~8 min, ~15 GB disk
 
 # The two cores are independent and cannot import from each other, so this is
 # the check that catches drift: both suites must report identical totals.
-test: roku-test godot-test ## Run both logic suites — the totals must match
+test: roku-test godot-test ## Run both logic suites - the totals must match
 	@echo ""
 	@echo "  Both suites above must read: Cases: 48, checks: 282, failed: 0"
-	@echo "  Different totals mean the two cores have drifted — see CONTRIBUTING.md"
+	@echo "  Different totals mean the two cores have drifted - see CONTRIBUTING.md"
 	@echo ""
 
-check: roku-lint roku-build roku-test godot-test godot-layout ## Full pre-PR gate
+# The long dashes read as a tell of machine-written text, so they are banned
+# from every tracked file and from commit messages. This makes the rule
+# enforceable instead of remembered. The characters are built from their code
+# points so this recipe does not itself contain one.
+no-dashes: ## Fail if any tracked file contains a long dash
+	@BAD=$$(printf '\xe2\x80\x94'); WORSE=$$(printf '\xe2\x80\x93'); \
+	if git grep -n -e "$$BAD" -e "$$WORSE" -- . >/dev/null 2>&1; then \
+		echo ""; \
+		echo "  Long dashes found. Use a plain hyphen or rewrite the sentence:"; \
+		echo ""; \
+		git grep -n -e "$$BAD" -e "$$WORSE" -- . | sed 's/^/    /'; \
+		echo ""; \
+		exit 1; \
+	fi
+	@echo "  No long dashes."
+
+check: no-dashes roku-lint roku-build roku-test godot-test godot-layout ## Full pre-PR gate
 	@echo ""
 	@echo "  All checks passed."
 	@echo ""
@@ -188,11 +204,11 @@ doctor: ## Check the toolchain and generated inputs
 	@printf "    %-9s " brotli;  command -v brotli  >/dev/null 2>&1 && echo "ok"         || echo "missing (only used for size measurements)"
 	@echo ""
 	@echo "  Project state"
-	@test -d node_modules      && echo "    node_modules    present" || echo "    node_modules    missing — run any target to install"
-	@test -d godot/.godot      && echo "    godot/.godot    present" || echo "    godot/.godot    missing — run 'make godot-import'"
-	@test -f $(MUSIC)          && echo "    music track     present" || echo "    music track     MISSING — run 'make godot-assets' (godot-build fails without it)"
+	@test -d node_modules      && echo "    node_modules    present" || echo "    node_modules    missing - run any target to install"
+	@test -d godot/.godot      && echo "    godot/.godot    present" || echo "    godot/.godot    missing - run 'make godot-import'"
+	@test -f $(MUSIC)          && echo "    music track     present" || echo "    music track     MISSING - run 'make godot-assets' (godot-build fails without it)"
 	@test -f $(WEB_TEMPLATE)   && echo "    engine template custom (optimised, ~27% smaller)" \
-	                           || echo "    engine template stock — run 'make godot-template' for the optimised one"
+	                           || echo "    engine template stock - run 'make godot-template' for the optimised one"
 	@echo ""
 
 clean: ## Remove the web build and packaged output
@@ -206,7 +222,7 @@ clean-all: clean ## Also remove the Godot import cache and engine build tree
 	@echo "removed godot/.godot and build/engine (kept build/templates)"
 
 # --------------------------------------------------------------------------
-# Prerequisites — real file targets so make can skip work already done
+# Prerequisites - real file targets so make can skip work already done
 # --------------------------------------------------------------------------
 
 node_modules: package-lock.json

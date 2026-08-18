@@ -5,7 +5,7 @@ extends Control
 # entry point into a game.
 #
 # Replaces components/LeaderboardScreen.bs. The per-game entry model is
-# unchanged — one row per playthrough, so the same nickname can appear several
+# unchanged - one row per playthrough, so the same nickname can appear several
 # times.
 
 signal play_requested
@@ -56,7 +56,7 @@ func _ready() -> void:
 
 	column.add_child(UiStyle.make_wordmark("BRICKRAIN", UiStyle.SIZE_WORDMARK_SMALL))
 
-	# Without this the current nickname is invisible here — the only names on
+	# Without this the current nickname is invisible here - the only names on
 	# screen are historical leaderboard rows, which keep the name used at the
 	# time, so changing it looks like it did nothing.
 	_player_label = UiStyle.make_label("", UiStyle.SIZE_STAT_LABEL, GameTheme.accent_color())
@@ -66,7 +66,7 @@ func _ready() -> void:
 	column.add_child(_record_label)
 
 	# On Facebook every player is on their own device, so this list is the
-	# player's own history — one row per run — not a ranking of people. The
+	# player's own history - one row per run - not a ranking of people. The
 	# social ranking is Facebook's native leaderboard, opened by the button
 	# below. On the shared-TV Roku build the equivalent list IS a household
 	# ranking, which is why the model itself stays unchanged.
@@ -86,7 +86,7 @@ func _ready() -> void:
 	scroll.add_child(_list)
 
 	_empty_label = UiStyle.make_label(
-		"No games yet — play one.", UiStyle.SIZE_ROW, GameTheme.text_color(), false
+		"No games yet. Play one!", UiStyle.SIZE_ROW, GameTheme.text_color(), false
 	)
 	column.add_child(_empty_label)
 
@@ -113,7 +113,7 @@ func _ready() -> void:
 
 	# The real ranking between players: Facebook's native leaderboard, which
 	# renders friends' names and photos via the platform overlay. Hidden off
-	# platform — same rule as the ad offer and the share button, so no button
+	# platform - same rule as the ad offer and the share button, so no button
 	# is ever shown that would silently do nothing.
 	if FBBridge.is_available():
 		var ranking := UiStyle.make_button("Friends Ranking", UiStyle.SIZE_BUTTON_SMALL)
@@ -169,10 +169,10 @@ func _make_row(rank: int, entry: Dictionary) -> Control:
 	var date_cell := _cell(str(entry["date"]), 0, HORIZONTAL_ALIGNMENT_LEFT, GameTheme.text_color())
 	date_cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(date_cell)
-	# Entries saved before the level field existed carry 0 — shown as unknown,
+	# Entries saved before the level field existed carry 0 - shown as unknown,
 	# not as an invented "Lv 1".
 	var level := Leaderboard.entry_level(entry)
-	var level_text := "Lv %d" % level if level >= 1 else "—"
+	var level_text := "Lv %d" % level if level >= 1 else ""
 	box.add_child(_cell(level_text, 130, HORIZONTAL_ALIGNMENT_CENTER, GameTheme.text_color()))
 	box.add_child(_cell(str(entry["score"]), 170, HORIZONTAL_ALIGNMENT_RIGHT, GameTheme.text_color(), true))
 	return row

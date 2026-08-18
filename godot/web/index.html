@@ -162,7 +162,7 @@ window.BrickRainFB = (function () {
 	/*
 	 * initializeAsync must be bounded. Off platform the SDK script still loads
 	 * from Meta's CDN, so FBInstant exists, but initializeAsync then neither
-	 * resolves nor rejects — it hangs indefinitely. Awaiting it unguarded
+	 * resolves nor rejects - it hangs indefinitely. Awaiting it unguarded
 	 * means the game never starts in the editor, on a plain web server, or if
 	 * Facebook is having a bad day. Timing out into "unavailable" is the only
 	 * safe reading of a promise that may never settle.
@@ -348,7 +348,7 @@ window.BrickRainFB = (function () {
 		// Under Zero Permissions the game cannot read names or photos; the v8
 		// overlayViews module exists so Facebook renders them itself. The exact
 		// creation call is not verifiable off-platform, so this probes the
-		// documented-plausible entry points and degrades to UNSUPPORTED —
+		// documented-plausible entry points and degrades to UNSUPPORTED -
 		// validate and pin the real one in the Instant Games test environment
 		// (it is on the Phase 6 checklist).
 
@@ -435,7 +435,7 @@ window.BrickRainFB = (function () {
  *
  * Chrome creates the context suspended and refuses to start it until a user
  * gesture. Godot has its own resume hook (_godot_audio_resume), but it is not
- * always honoured — Chrome logs "The AudioContext was not allowed to start"
+ * always honoured - Chrome logs "The AudioContext was not allowed to start"
  * and every sound is silently dropped: the mixer keeps running and playback
  * positions advance, so nothing looks wrong from inside the engine.
  *
@@ -493,7 +493,7 @@ window.BrickRainAudio = (function () {
  * the bytes over as base64 uses the same shim pattern as BrickRainFB above and
  * is straightforward to inspect from the console.
  *
- * The track deliberately lives outside index.pck — everything in there is
+ * The track deliberately lives outside index.pck - everything in there is
  * downloaded before the first frame, so packing the music would delay the boot
  * for every player. It is fetched lazily, and the game runs fine without it.
  */
@@ -612,7 +612,7 @@ const engine = new Engine(GODOT_CONFIG);
 		setStatusMode('progress');
 		/*
 		 * FR01. The engine download starts immediately and runs in parallel
-		 * with SDK init — it is by far the slowest step, and gating it on
+		 * with SDK init - it is by far the slowest step, and gating it on
 		 * Facebook would put a third party on the critical path to first
 		 * paint. Progress values are the engine's own byte counts, not an
 		 * animation; setLoadingProgress no-ops until init resolves.

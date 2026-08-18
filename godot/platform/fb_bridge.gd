@@ -7,7 +7,7 @@ extends Node
 # JavaScriptBridge. This node's job is to marshal arguments, keep callback
 # objects alive, and hand results back as signals.
 #
-# Off platform — in the editor, or on a plain web server — every call resolves
+# Off platform - in the editor, or on a plain web server - every call resolves
 # to a defined "unavailable" result instead of failing. Nothing else in the
 # codebase branches on the environment; callers just get an answer.
 #

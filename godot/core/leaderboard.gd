@@ -94,7 +94,7 @@ static func is_valid_date_text(date_text: String) -> bool:
 
 
 # The top (rank 1) score on the leaderboard, or 0 when it is empty. This is
-# the record to beat — entries are kept sorted by score descending, so the
+# the record to beat - entries are kept sorted by score descending, so the
 # first entry holds the highest score.
 static func top_score(leaderboard_state: Dictionary) -> int:
 	var entries: Array = leaderboard_state["entries"]
@@ -174,7 +174,7 @@ static func is_valid_entry(entry) -> bool:
 
 
 # The stored level, or 0 for entries persisted before the field existed (or
-# carrying a malformed value) — "unknown", never a made-up number.
+# carrying a malformed value) - "unknown", never a made-up number.
 static func entry_level(entry: Dictionary) -> int:
 	if entry.has("level") and is_number(entry["level"]):
 		return int(entry["level"])

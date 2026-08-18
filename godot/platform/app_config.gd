@@ -5,7 +5,7 @@ extends RefCounted
 #
 # Ad placement ids are configuration, not code: they differ per app, they are
 # created after the app exists, and baking them into a script would mean a
-# rebuild to change one. An unset placement id is a supported state — the
+# rebuild to change one. An unset placement id is a supported state - the
 # rewarded-ad offer is simply not shown.
 
 const CONFIG_PATH := "res://app_config.json"

@@ -103,7 +103,7 @@ func _start_run() -> void:
 
 
 # Every finished game is recorded as its own entry, so the same nickname can
-# appear many times — the model the Roku channel uses.
+# appear many times - the model the Roku channel uses.
 func _on_game_finished(result: Dictionary) -> void:
 	_leaderboard = Leaderboard.add_entry(
 		_leaderboard,

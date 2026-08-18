@@ -12,7 +12,7 @@ extends Control
 # GameTheme.cell_colors), so the decoration cannot drift from the palette the
 # player sees while playing.
 
-const COUNT := 16
+const COUNT := 32
 const CELL := 30.0
 const GAP := 3.0
 const MIN_SPEED := 22.0

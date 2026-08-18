@@ -11,7 +11,7 @@
 # The output is a single .zip that Godot consumes as a custom export template.
 # It is a BUILD ARTIFACT, not source: do not commit it. Build it once, publish
 # it (a GitHub Release asset works well), and have CI download it rather than
-# rebuild it — a full build is 30-60 minutes.
+# rebuild it - a full build is 30-60 minutes.
 #
 # Usage:
 #   tools/build_web_template.sh [godot-version]
@@ -110,7 +110,7 @@ log "Building (this takes 30-60 minutes)"
 )
 
 log "Packaging template"
-# SCons already emits a template zip with exactly the layout Godot expects —
+# SCons already emits a template zip with exactly the layout Godot expects -
 # the same seven godot.* entries as the official web_nothreads_release.zip.
 # Repackaging it by hand only risks dropping the audio worklets, so just take
 # what the build produced.

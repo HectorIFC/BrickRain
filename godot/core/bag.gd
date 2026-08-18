@@ -7,7 +7,7 @@ extends RefCounted
 #
 # Translated from source/logic/bag.bs. Keep both implementations in step.
 #
-# The generator below MUST stay bit-exact with the BrightScript original —
+# The generator below MUST stay bit-exact with the BrightScript original -
 # the seeded-game golden values in both test suites depend on it. Do not
 # swap it for RandomNumberGenerator.
 

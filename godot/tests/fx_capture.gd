@@ -3,14 +3,14 @@ extends Node
 # Frame-capture harness for effects too fast to screenshot by hand: the
 # LEVEL-up popup, the wave, and the new-record fireworks show.
 #
-# It does NOT assert anything — it drives a real GameScreen through a scripted
+# It does NOT assert anything - it drives a real GameScreen through a scripted
 # effects timeline so Movie Maker mode can record every frame. Run with:
 #
 #   godot --path godot --write-movie ../build/captures/fx.png --fixed-fps 30 \
 #         res://tests/FxCapture.tscn
 #
 # (`make godot-capture` wraps exactly that.) --write-movie renders offline at
-# a fixed clock, so nothing depends on machine speed — the same reason a
+# a fixed clock, so nothing depends on machine speed - the same reason a
 # background browser tab, whose throttled clock once stretched a 0.9 s timer
 # to 18 s, is the WRONG place to judge these animations.
 #

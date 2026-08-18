@@ -16,7 +16,7 @@ commits (and **squash-merge PR titles**) MUST follow
 | `build:` / `chore:` / `docs:` / `refactor:` / `test:` | `chore: bump bslint` | patch |
 | `feat!:` or a `BREAKING CHANGE:` footer | `feat!: change registry schema` | major |
 
-When a PR is squash-merged, GitHub uses the **PR title** as the commit message — so the PR title
+When a PR is squash-merged, GitHub uses the **PR title** as the commit message - so the PR title
 must be a valid Conventional Commit.
 
 ## Two implementations, one set of game rules
@@ -35,7 +35,7 @@ import from each other, so nothing but discipline and the tests keeps them in st
 The guard is a deterministic scripted game on **seed 23**, asserted to produce exactly
 **1538 points / 5 lines / 38 pieces** by *both* suites. It exercises the Park-Miller RNG,
 the 7-bag shuffle, every SRS kick table, collision, line clearing, scoring, lock delay and
-the whole state machine — so if the two implementations drift on any rule, that one
+the whole state machine - so if the two implementations drift on any rule, that one
 assertion fails on one side and not the other.
 
 If you change a rule and the golden values legitimately change, update them in **both**
@@ -60,11 +60,11 @@ npm run web:test:layout   # screens fill the viewport; portrait/landscape flip
 
 - All code, identifiers, comments and docs are **English only**.
 - Keep game rules in the pure core (`source/logic/`, no SceneGraph imports) and add/extend the
-  shared test cases in `tests/cases/` — if a component function grows beyond trivial glue, move
+  shared test cases in `tests/cases/` - if a component function grows beyond trivial glue, move
   the logic into `source/logic/` where it is covered.
 - Never commit secrets: `.env`, device IPs, dev-mode passwords or Roku signing keys (`*.pkg`,
   `*.key`) are gitignored and must stay out of the repo.
-- The game is **BrickRain** / a "falling-blocks game" — do not use the trademarked name of the
+- The game is **BrickRain** / a "falling-blocks game" - do not use the trademarked name of the
   classic game anywhere.
 
 ## Local device testing

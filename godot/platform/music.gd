@@ -6,7 +6,7 @@ extends Node
 #
 # 1. The track is fetched over HTTP rather than loaded from res://. Everything
 #    in res:// is packed into index.pck, which the browser downloads in full
-#    before the first frame — so shipping the music that way would delay the
+#    before the first frame - so shipping the music that way would delay the
 #    boot for every player. It is excluded from the export and copied to the
 #    bundle root instead (see scripts/package-web.js).
 #
@@ -23,7 +23,7 @@ extends Node
 #
 # NOTE: this only produces sound because project.godot forces
 # audio/general/default_playback_type.web to Stream. Under the web default
-# ("Sample") a looping Ogg — and anything built with load_from_buffer — is
+# ("Sample") a looping Ogg - and anything built with load_from_buffer - is
 # dropped with a warning while still reporting playing=true, which is silent
 # and very hard to spot.
 

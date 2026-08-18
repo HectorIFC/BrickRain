@@ -27,7 +27,7 @@
             <Label id="scrollDown" text="▼" font="font:MediumBoldSystemFont" color="0x00F0F0FF" horizAlign="center" width="120" translation="[360, 474]" visible="false" />
         </Group>
 
-        <Label id="emptyState" text="No scores yet — be the first!" font="font:MediumBoldSystemFont" color="0xF5F5FAFF" horizAlign="center" width="800" translation="[560, 500]" visible="false" />
+        <Label id="emptyState" text="No scores yet. Be the first!" font="font:MediumBoldSystemFont" color="0xF5F5FAFF" horizAlign="center" width="800" translation="[560, 500]" visible="false" />
 
         <Rectangle id="startButton" width="300" height="68" color="0x00F0F0FF" translation="[810, 928]" />
         <Label text="Start Game" font="font:MediumBoldSystemFont" color="0x080A22FF" horizAlign="center" vertAlign="center" width="300" height="68" translation="[810, 928]" />

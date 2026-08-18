@@ -15,7 +15,7 @@ async function main() {
   const outDir = path.join(repoRoot, "out");
   const zipPath = path.join(outDir, "brickrain.zip");
   if (!existsSync(zipPath)) {
-    console.error("Build artifact not found: " + zipPath + " — run `npm run build` first.");
+    console.error("Build artifact not found: " + zipPath + " - run `npm run build` first.");
     process.exit(1);
   }
 

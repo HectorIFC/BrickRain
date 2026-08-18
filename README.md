@@ -4,7 +4,7 @@
 
 <h1 align="center">BrickRain</h1>
 
-<p align="center">A falling-blocks game for Roku TV — pixel art, chiptune sound, zero network.</p>
+<p align="center">A falling-blocks game for Roku TV - pixel art, chiptune sound, zero network.</p>
 
 <p align="center">
   <a href="https://github.com/HectorIFC/BrickRain/actions/workflows/ci.yml"><img src="https://github.com/HectorIFC/BrickRain/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
@@ -16,13 +16,13 @@
 > A single-player falling-blocks game for Roku TVs, written in BrighterScript. Built as an
 > open-source portfolio project demonstrating real Roku platform work: BrightScript/SceneGraph,
 > a pure unit-tested game core, Rooibos testing, `roku-deploy` sideloading and CI/release
-> automation. Fully offline — no network calls, no accounts, no data collection.
+> automation. Fully offline - no network calls, no accounts, no data collection.
 
 ## Gameplay
 
-<!-- Drag and drop gameplay.mp4 here in the GitHub editor when recorded — GitHub will host it and render an inline player -->
+<!-- Drag and drop gameplay.mp4 here in the GitHub editor when recorded - GitHub will host it and render an inline player -->
 
-_Gameplay video on a real Roku TV — coming soon._
+_Gameplay video on a real Roku TV - coming soon._
 
 ## Features
 
@@ -45,12 +45,12 @@ _Gameplay video on a real Roku TV — coming soon._
 | Play / Pause | Pause / resume |
 | Back | Pause menu; from the menu, exit |
 
-> Note: the Hold action is mapped to Fast-forward — the PRD lists Hold as a feature but assigns
+> Note: the Hold action is mapped to Fast-forward - the PRD lists Hold as a feature but assigns
 > it no button, so the otherwise-unused fast-forward key was chosen.
 
 ## Quick start
 
-`make` lists every command, grouped by which of the two games it acts on — Roku targets are
+`make` lists every command, grouped by which of the two games it acts on - Roku targets are
 prefixed `roku-`, web ones `godot-`:
 
 ```bash
@@ -58,7 +58,7 @@ make              # the target list
 make doctor       # check your toolchain before anything else
 make godot-play   # build the web game, serve it, open the browser
 make roku-play    # build the channel to drop into the brs-engine web app
-make test         # both logic suites — the totals must match
+make test         # both logic suites - the totals must match
 ```
 
 The npm scripts below still work and are what CI calls; the Makefile only wraps them.
@@ -98,7 +98,7 @@ The same shared test cases (`tests/cases/`) run two ways: headless under brs-nod
 under **Rooibos** on a device for native code coverage. Policy: **target 100%, hard minimum 80%**
 line coverage on `source/logic/`. The numeric gate is collected on-device (`npm run test:device`
 emits lcov) because the brs-engine simulator's SceneGraph support is experimental; the headless
-suite — which exercises every branch of the core — is the CI correctness gate.
+suite - which exercises every branch of the core - is the CI correctness gate.
 
 Run the manual device checklist in [MANUAL_TESTING.md](MANUAL_TESTING.md) after UI changes.
 
@@ -106,14 +106,14 @@ Run the manual device checklist in [MANUAL_TESTING.md](MANUAL_TESTING.md) after 
 
 BrickRain is a **pure functional core** plus a thin **imperative shell**:
 
-- `source/logic/` — plain data in, plain data out, **no SceneGraph dependencies**: `board`,
+- `source/logic/` - plain data in, plain data out, **no SceneGraph dependencies**: `board`,
   `piece` (SRS + kicks), `bag` (seedable 7-bag), `score`, `leaderboard`, and the `game` state
   machine. This is what makes the game testable without a device.
-- `components/` — SceneGraph nodes that render the logic state and forward remote input
+- `components/` - SceneGraph nodes that render the logic state and forward remote input
   (`MainScene` router, `LeaderboardScreen`, `NicknameDialog`, `GameScreen`, node-pooled
   `BoardView`, `SidePanel`, pause/game-over overlays).
-- `source/registryAdapter.bs` — the only registry touch-point (persistence).
-- `tools/` — Python generators for the original artwork and chiptune audio
+- `source/registryAdapter.bs` - the only registry touch-point (persistence).
+- `tools/` - Python generators for the original artwork and chiptune audio
   (`pip install -r tools/requirements.txt`, then run `python tools/generate_*.py`).
   Everything audible and visible is synthesised here rather than sourced: nine
   sound effects, the wordmark and splashes, and the web build's 128 BPM music
@@ -124,17 +124,17 @@ BrickRain is a **pure functional core** plus a thin **imperative shell**:
 
 `godot/` holds a second, independent implementation in **Godot 4 / GDScript**, targeting
 **Facebook Instant Games**. It is translated from the BrightScript core rather than
-reinvented, and the two build, test and release completely separately — the Roku channel is
+reinvented, and the two build, test and release completely separately - the Roku channel is
 unaffected by anything under `godot/`.
 
-- `godot/core/` — a 1:1 port of `source/logic/`, pure `class_name` + `static func` modules
+- `godot/core/` - a 1:1 port of `source/logic/`, pure `class_name` + `static func` modules
   with no engine imports.
-- `godot/scenes/` — the imperative shell (immediate-mode `_draw()` board, responsive
+- `godot/scenes/` - the imperative shell (immediate-mode `_draw()` board, responsive
   portrait/landscape layout, touch + keyboard input).
-- `godot/platform/` — the Instant Games SDK bridge, cloud save and rewarded ads, each
+- `godot/platform/` - the Instant Games SDK bridge, cloud save and rewarded ads, each
   degrading to a defined "unavailable" result off-platform.
 
-Both cores are held to the **same golden values** — a scripted game on seed 23 must produce
+Both cores are held to the **same golden values** - a scripted game on seed 23 must produce
 1538 points / 5 lines / 38 pieces in both suites. See
 [CONTRIBUTING.md](CONTRIBUTING.md#two-implementations-one-set-of-game-rules).
 
@@ -154,11 +154,11 @@ Releases are automated from **Conventional Commits** on `main`:
 
 - `feat:` → minor, `fix:` / `build:` / `chore:` → patch, `feat!:` / `BREAKING CHANGE:` → major.
 - `.github/workflows/release.yml` computes the next tag, writes the version into the `manifest`,
-  builds the channel and publishes a **GitHub Release** with `brickrain-vX.Y.Z.zip` attached —
+  builds the channel and publishes a **GitHub Release** with `brickrain-vX.Y.Z.zip` attached -
   every release is directly sideloadable on a Roku in developer mode.
 
 Contribution and commit conventions: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE) — all code, artwork and audio are original to this project.
+[MIT](LICENSE) - all code, artwork and audio are original to this project.

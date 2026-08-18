@@ -5,7 +5,7 @@
 //
 // Facebook hosts the bundle: you upload a ZIP via App Dashboard -> Web Hosting
 // -> Upload Version. The archive must contain index.html and fbapp-config.json
-// at its ROOT, not inside a wrapping folder — a nested layout is accepted by
+// at its ROOT, not inside a wrapping folder - a nested layout is accepted by
 // the uploader and then fails to boot, so the layout is verified here rather
 // than discovered in the dashboard.
 //

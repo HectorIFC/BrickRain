@@ -10,7 +10,7 @@ extends Node
 #   godot --headless --path godot res://tests/SmokeLayout.tscn
 #
 # This exists because a Control that silently collapses to zero size still
-# "works" — it renders its children at their minimum size in the top-left
+# "works" - it renders its children at their minimum size in the top-left
 # corner, which reads as a styling bug rather than a layout one.
 
 const EXPECTED_SCREENS := ["nickname_entry.gd", "dashboard.gd", "game.gd"]
@@ -70,7 +70,7 @@ func _check_responsive_layout() -> void:
 
 	# Sizes are in the PROJECT design space, not physical pixels. The project
 	# stretches canvas_items with aspect=expand against a 1080x1920 base, so the
-	# viewport is never smaller than that on either axis — whichever dimension
+	# viewport is never smaller than that on either axis - whichever dimension
 	# has surplus grows. A physical 900x460 window becomes ~3750x1920 here.
 	# Driving raw Control sizes with physical numbers measures a layout that
 	# cannot occur and makes the panel look far wider than it really is.

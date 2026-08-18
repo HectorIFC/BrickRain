@@ -139,7 +139,7 @@ namespace tests.gameCases
     ' Deterministic scripted game: a tiny greedy bot drives every piece, in
     ' spawn orientation, to the column that minimizes holes and stack height
     ' (favoring clears). It clears lines along the way but cannot rotate, so
-    ' S/Z hole buildup eventually tops the game out — a full playthrough.
+    ' S/Z hole buildup eventually tops the game out - a full playthrough.
     function playScriptedGame(seed as integer) as object
         s = brickrain.game.create(seed)
         pieces = 0

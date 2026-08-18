@@ -71,7 +71,7 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           # Creates the tag at the pushed commit only when this step runs, i.e.
-          # after the build succeeded — tag and release are published together.
+          # after the build succeeded - tag and release are published together.
           tag_name: ${{ steps.tag.outputs.new_tag }}
           target_commitish: ${{ github.sha }}
           name: ${{ steps.tag.outputs.new_tag }}

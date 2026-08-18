@@ -8,7 +8,7 @@ extends Control
 # that constraint does not apply here, so this is a LineEdit plus the platform
 # virtual keyboard on touch devices.
 #
-# Validation is Leaderboard.validate_nickname, unchanged — the same rules the
+# Validation is Leaderboard.validate_nickname, unchanged - the same rules the
 # Roku channel enforces.
 #
 # Under Facebook's Zero Permissions model the SDK no longer exposes the

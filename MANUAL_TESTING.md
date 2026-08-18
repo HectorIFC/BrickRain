@@ -12,20 +12,20 @@ simulator) with this checklist after each significant UI change.
 2. `cp .env.example .env` and fill in `ROKU_DEV_TARGET` (IP) and
    `ROKU_DEV_PASSWORD`.
 3. `npm install`
-4. `npm run deploy` — builds `out/brickrain.zip` and sideloads it.
+4. `npm run deploy` - builds `out/brickrain.zip` and sideloads it.
 
 ## Checklist
 
 ### Boot & dashboard
 - [ ] Channel boots to the dashboard in under ~3 s; the BRICK RAIN logo shows.
-- [ ] With no scores stored, the empty state reads "No scores yet — be the first!".
+- [ ] With no scores stored, the empty state reads "No scores yet - be the first!".
 - [ ] The **Start Game** button is focused on entry.
 
 ### Nickname dialog
 - [ ] Pressing Start opens the keyboard dialog.
 - [ ] On a second run, the dialog is pre-filled with the last nickname used.
 - [ ] Entering fewer than 2 or more than 12 chars, or a symbol/space, keeps the
-      dialog open with the validation message; a valid 2–12 alphanumeric name is
+      dialog open with the validation message; a valid 2-12 alphanumeric name is
       accepted.
 - [ ] Cancel returns to the dashboard without starting a game.
 
@@ -37,7 +37,7 @@ simulator) with this checklist after each significant UI change.
 - [ ] Rotating against a wall/stack kicks the piece into a legal spot (SRS).
 - [ ] Fast-forward (►►) sends the active piece to Hold and pulls it back next time
       (once per piece). *(Hold has no button in the PRD controls table; the free
-      fast-forward key was chosen — see README controls note.)*
+      fast-forward key was chosen - see README controls note.)*
 - [ ] The side panel shows score, level, lines, the next 3 pieces and the hold slot.
 - [ ] Clearing 1/2/3/4 lines scores 100/300/500/800 × level; the board collapses.
 - [ ] Reaching 10 cleared lines increases the level and speeds up the fall.
@@ -67,7 +67,7 @@ simulator) with this checklist after each significant UI change.
 
 # Web build (Godot / Facebook Instant Games)
 
-Audio cannot be verified headlessly — no test in this repository can tell you
+Audio cannot be verified headlessly - no test in this repository can tell you
 whether a sound actually reached the speakers. That gap once let the web build
 ship completely silent while every automated check stayed green: the files were
 intact, the mixer ran at full rate, and `playing` reported `true`, because Godot
@@ -76,7 +76,7 @@ was routing audio to a path that silently dropped it. **Listen to it.**
 Run `make godot-play`, then:
 
 ### Audio
-- [ ] Music starts when you press **Play** on the dashboard — never before, since
+- [ ] Music starts when you press **Play** on the dashboard - never before, since
       browsers block audio until a user gesture.
 - [ ] Effects are audible on move, rotate, hard drop, lock and line clear.
       `move` and `menu_select` are ~50 ms blips by design; listen for a tick,
@@ -99,7 +99,7 @@ Run `make godot-play`, then:
 - [ ] Clearing a line flashes the row, bursts particles in the pieces' colours
       and floats "+points" up from the well; no screen shake for 1-3 lines.
 - [ ] A quad (4 lines) plays its own fanfare (`quad_clear`, brighter and longer
-      than the normal chime) and briefly shakes the well — panel and buttons
+      than the normal chime) and briefly shakes the well - panel and buttons
       stay still.
 - [ ] Consecutive clears show "COMBO xN" and the combo blip rises in pitch with
       each step; a piece that locks without clearing resets the chain.
@@ -115,28 +115,29 @@ Run `make godot-play`, then:
       boom-and-crackle landing exactly on its visual pop, pitch varying shot
       to shot.
 - [ ] Leaving the overlay (Play Again, Dashboard, or a rewarded continue)
-      stops the show immediately — no stray boom afterwards. Share keeps it
+      stops the show immediately - no stray boom afterwards. Share keeps it
       running, since the overlay stays open.
 - [ ] The BRICKRAIN wordmark on the dashboard and the nickname screen does a
-      stadium wave — a crest travelling left to right through the letters,
+      stadium wave - a crest travelling left to right through the letters,
       continuously. The share card and the in-well popups stay still.
 
 ### Dashboard framing (web)
-- [ ] The list is headed **"Your best runs"** — it is the player's own history, not a
+- [ ] The list is headed **"Your best runs"** - it is the player's own history, not a
       ranking of people.
-- [ ] Rows show position, date, level and score — no nickname; the current
+- [ ] Rows show position, date, level and score - no nickname; the current
       name lives in the "Playing as" line above the list. Runs recorded before
-      the level field existed show "—" instead of a made-up level.
+      the level field existed leave the level cell empty instead of showing a
+      made-up value.
 - [ ] Off-platform (make godot-play) there is **no Friends Ranking button**; it only
       exists inside Facebook, same rule as the ad offer and Share.
 
 ### Tooling for these checks
 - `make godot-play-clean` serves the build on a random throwaway port. Browser
   storage is partitioned per origin (host:port), so the game starts with no
-  nickname, no runs and record 0 — the way to retest the first-run flow and
+  nickname, no runs and record 0 - the way to retest the first-run flow and
   the new-record fireworks without clearing anything by hand.
 - `make godot-capture` records the fast effects (LEVEL popup, fireworks) as
   PNG frames in `build/captures/` via Godot's Movie Maker mode, which renders
   offline at a fixed clock. Use it when an animation is too quick to
-  screenshot — and never judge these animations in a background browser tab,
+  screenshot - and never judge these animations in a background browser tab,
   where throttling stretches the game clock.
