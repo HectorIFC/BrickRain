@@ -11,7 +11,7 @@ done by a human with access to the Facebook developer account.
 ## Build the bundle
 
 ```bash
-make godot-test     # 47 logic cases, including the seed-23 golden values
+make godot-test     # 48 logic cases, including the seed-23 golden values
 make godot-layout   # screens fill the viewport; portrait/landscape flip
 make godot-build    # export + package -> out/brickrain-web.zip
 make godot-play     # ...or build it and play it locally in one step

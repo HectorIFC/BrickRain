@@ -13,6 +13,10 @@ extends RefCounted
 #
 # Porting note: BrightScript mid() is 1-indexed, GDScript substr() is
 # 0-indexed. Every offset below is shifted by one accordingly.
+#
+# The level field arrived after the first releases shipped, so it is optional
+# on the wire: entries persisted without it deserialize with level 0, which
+# the UIs render as "unknown" rather than inventing a value.
 
 static var _nickname_pattern: RegEx = null
 
@@ -61,7 +65,7 @@ static func date_key(date_text: String) -> int:
 # the same nickname can appear multiple times (e.g. Hector 100, Mario 98,
 # Hector 95). The result is sorted (score desc, earliest date wins ties) and
 # capped at max_entries(); entries beyond the cap drop from the bottom.
-static func add_entry(leaderboard_state: Dictionary, nickname: String, score: int, date_text: String) -> Dictionary:
+static func add_entry(leaderboard_state: Dictionary, nickname: String, score: int, date_text: String, level: int = 0) -> Dictionary:
 	# Defensive: skip malformed input so a bad nickname/date can never corrupt
 	# ranking (a malformed date would key as 0 and win tie-breaks).
 	var nickname_check := validate_nickname(nickname)
@@ -73,7 +77,7 @@ static func add_entry(leaderboard_state: Dictionary, nickname: String, score: in
 	var entries := []
 	for entry in leaderboard_state["entries"]:
 		entries.append(clone_entry(entry))
-	entries.append({"nickname": nickname_check["value"], "score": score, "date": date_text})
+	entries.append({"nickname": nickname_check["value"], "score": score, "date": date_text, "level": level})
 	return {"entries": cap_entries(sort_entries(entries))}
 
 
@@ -147,7 +151,8 @@ static func deserialize(json_text: String) -> Dictionary:
 			entries.append({
 				"nickname": entry["nickname"],
 				"score": int(entry["score"]),
-				"date": entry["date"]
+				"date": entry["date"],
+				"level": entry_level(entry)
 			})
 	return {"entries": cap_entries(sort_entries(entries))}
 
@@ -168,6 +173,14 @@ static func is_valid_entry(entry) -> bool:
 	return true
 
 
+# The stored level, or 0 for entries persisted before the field existed (or
+# carrying a malformed value) — "unknown", never a made-up number.
+static func entry_level(entry: Dictionary) -> int:
+	if entry.has("level") and is_number(entry["level"]):
+		return int(entry["level"])
+	return 0
+
+
 static func is_number(value) -> bool:
 	if value == null:
 		return false
@@ -175,7 +188,12 @@ static func is_number(value) -> bool:
 
 
 static func clone_entry(entry: Dictionary) -> Dictionary:
-	return {"nickname": entry["nickname"], "score": entry["score"], "date": entry["date"]}
+	return {
+		"nickname": entry["nickname"],
+		"score": entry["score"],
+		"date": entry["date"],
+		"level": entry_level(entry)
+	}
 
 
 static func pad2(value: int) -> String:

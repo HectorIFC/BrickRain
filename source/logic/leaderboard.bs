@@ -47,7 +47,7 @@ namespace brickrain.leaderboard
     ' the same nickname can appear multiple times (e.g. Hector 100, Mario 98,
     ' Hector 95). The result is sorted (score desc, earliest date wins ties) and
     ' capped at maxEntries(); entries beyond the cap drop from the bottom.
-    function addEntry(leaderboardState as object, nickname as string, score as integer, dateText as string) as object
+    function addEntry(leaderboardState as object, nickname as string, score as integer, dateText as string, level = 0 as integer) as object
         ' Defensive: skip malformed input so a bad nickname/date can never corrupt
         ' ranking (a malformed date would key as 0 and win tie-breaks).
         nicknameCheck = validateNickname(nickname)
@@ -58,7 +58,7 @@ namespace brickrain.leaderboard
         for each entry in leaderboardState.entries
             entries.push(cloneEntry(entry))
         end for
-        entries.push({ nickname: nicknameCheck.value, score: score, date: dateText })
+        entries.push({ nickname: nicknameCheck.value, score: score, date: dateText, level: level })
         return { entries: capEntries(sortEntries(entries)) }
     end function
 
@@ -125,7 +125,7 @@ namespace brickrain.leaderboard
         entries = []
         for each entry in parsed.entries
             if isValidEntry(entry)
-                entries.push({ nickname: entry.nickname, score: int(entry.score), date: entry.date })
+                entries.push({ nickname: entry.nickname, score: int(entry.score), date: entry.date, level: entryLevel(entry) })
             end if
         end for
         return { entries: capEntries(sortEntries(entries)) }
@@ -141,6 +141,13 @@ namespace brickrain.leaderboard
         return true
     end function
 
+    ' The stored level, or 0 for entries persisted before the field existed (or
+    ' carrying a malformed value) — "unknown", never a made-up number.
+    function entryLevel(entry as object) as integer
+        if isNumber(entry.level) then return int(entry.level)
+        return 0
+    end function
+
     function isNumber(value as dynamic) as boolean
         if value = invalid then return false
         if getInterface(value, "ifInt") <> invalid then return true
@@ -150,7 +157,7 @@ namespace brickrain.leaderboard
     end function
 
     function cloneEntry(entry as object) as object
-        return { nickname: entry.nickname, score: entry.score, date: entry.date }
+        return { nickname: entry.nickname, score: entry.score, date: entry.date, level: entryLevel(entry) }
     end function
 
     sub insertAt(entries as object, index as integer, entry as object)

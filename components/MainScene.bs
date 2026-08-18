@@ -66,7 +66,7 @@ end sub
 sub onGameResult()
     result = m.gameScreen.gameResult
     if result = invalid or result.nickname = invalid then return
-    m.leaderboard = brickrain.leaderboard.addEntry(m.leaderboard, result.nickname, result.score, todayDate())
+    m.leaderboard = brickrain.leaderboard.addEntry(m.leaderboard, result.nickname, result.score, todayDate(), result.level)
     brickrain.registry.saveLeaderboard(m.leaderboard)
     m.leaderboardScreen.entries = m.leaderboard.entries
     m.gameScreen.recordScore = brickrain.leaderboard.topScore(m.leaderboard)

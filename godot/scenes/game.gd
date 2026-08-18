@@ -310,7 +310,9 @@ func _drain_fx(prev: Dictionary, s: Dictionary) -> void:
 				)
 			"levelUp":
 				_fx.level_up()
-				_fx.popup("LEVEL %d" % int(event["level"]), 64)
+				# Overlay-title size: a level-up is a bigger beat than a "+points"
+				# float (60), and at 64 the two were nearly indistinguishable.
+				_fx.popup("LEVEL %d" % int(event["level"]), UiStyle.SIZE_OVERLAY_TITLE)
 				_shake_amp = maxf(_shake_amp, 4.0)
 
 
@@ -554,6 +556,7 @@ func _on_game_over() -> void:
 		"nickname": _player_nickname,
 		"score": final_score,
 		"lines": int(_state["score"]["lines"]),
+		"level": int(_state["score"]["level"]),
 		"is_new_record": is_new_record
 	})
 

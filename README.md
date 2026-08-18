@@ -139,7 +139,7 @@ Both cores are held to the **same golden values** — a scripted game on seed 23
 [CONTRIBUTING.md](CONTRIBUTING.md#two-implementations-one-set-of-game-rules).
 
 ```bash
-npm run web:test          # the ported logic suite (same 47 cases)
+npm run web:test          # the ported logic suite (same 48 cases)
 npm run web:test:layout   # layout/responsiveness smoke test
 npm run web:build         # export + package -> out/brickrain-web.zip
 ```

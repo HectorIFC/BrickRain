@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://brickrain_fx_capture"]
+
+[ext_resource type="Script" path="res://tests/fx_capture.gd" id="1_fxcap"]
+
+[node name="FxCapture" type="Node"]
+script = ExtResource("1_fxcap")

@@ -109,7 +109,8 @@ func _on_game_finished(result: Dictionary) -> void:
 		_leaderboard,
 		str(result["nickname"]),
 		int(result["score"]),
-		Storage.today_text()
+		Storage.today_text(),
+		int(result["level"])
 	)
 	Storage.save_leaderboard(_leaderboard)
 

@@ -14,6 +14,7 @@ static func run_all() -> Array:
 		{"name": "leaderboard: top_score returns the rank-1 score", "collector": case_top_score()},
 		{"name": "leaderboard: capacity is capped at 50 entries", "collector": case_cap()},
 		{"name": "leaderboard: JSON round trip preserves entries", "collector": case_round_trip()},
+		{"name": "leaderboard: level rides along; legacy entries default to 0", "collector": case_level_field()},
 		{"name": "leaderboard: malformed JSON degrades to empty", "collector": case_bad_json()},
 		{"name": "leaderboard: malformed nickname/date is rejected", "collector": case_rejects_malformed()}
 	]
@@ -125,6 +126,25 @@ static func case_round_trip() -> Dictionary:
 	TestAssert.equal(c, restored["entries"][0]["nickname"], "Alice", "order survives")
 	TestAssert.equal(c, restored["entries"][0]["score"], 500, "score survives")
 	TestAssert.equal(c, restored["entries"][1]["date"], "01/06/2026", "date survives")
+	return c
+
+
+static func case_level_field() -> Dictionary:
+	var c := TestAssert.new_collector()
+	var lb := Leaderboard.create()
+	lb = Leaderboard.add_entry(lb, "Alice", 500, "06/06/2026", 7)
+	TestAssert.equal(c, lb["entries"][0]["level"], 7, "add_entry records the finishing level")
+	lb = Leaderboard.add_entry(lb, "Bob", 300, "01/06/2026")
+	TestAssert.equal(c, lb["entries"][1]["level"], 0, "omitted level defaults to 0 (unknown)")
+	TestAssert.equal(c, lb["entries"][0]["level"], 7, "cloning through a later add keeps the level")
+	var restored := Leaderboard.deserialize(Leaderboard.serialize(lb))
+	TestAssert.equal(c, restored["entries"][0]["level"], 7, "level survives the JSON round trip")
+	# Payloads persisted before the field existed must keep deserializing.
+	var legacy := Leaderboard.deserialize('{"entries":[{"nickname":"Old","score":50,"date":"01/01/2026"}]}')
+	TestAssert.equal(c, legacy["entries"].size(), 1, "a legacy entry without level is still valid")
+	TestAssert.equal(c, legacy["entries"][0]["level"], 0, "legacy entries read as level 0, never invented")
+	var bad := Leaderboard.deserialize('{"entries":[{"nickname":"Odd","score":60,"date":"02/01/2026","level":"high"}]}')
+	TestAssert.equal(c, bad["entries"][0]["level"], 0, "a malformed level degrades to 0, not a crash")
 	return c
 
 

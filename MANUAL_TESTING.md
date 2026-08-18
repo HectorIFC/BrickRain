@@ -124,7 +124,19 @@ Run `make godot-play`, then:
 ### Dashboard framing (web)
 - [ ] The list is headed **"Your best runs"** — it is the player's own history, not a
       ranking of people.
-- [ ] Rows show position, date and score only — no nickname; the current name
-      lives in the "Playing as" line above the list.
+- [ ] Rows show position, date, level and score — no nickname; the current
+      name lives in the "Playing as" line above the list. Runs recorded before
+      the level field existed show "—" instead of a made-up level.
 - [ ] Off-platform (make godot-play) there is **no Friends Ranking button**; it only
       exists inside Facebook, same rule as the ad offer and Share.
+
+### Tooling for these checks
+- `make godot-play-clean` serves the build on a random throwaway port. Browser
+  storage is partitioned per origin (host:port), so the game starts with no
+  nickname, no runs and record 0 — the way to retest the first-run flow and
+  the new-record fireworks without clearing anything by hand.
+- `make godot-capture` records the fast effects (LEVEL popup, fireworks) as
+  PNG frames in `build/captures/` via Godot's Movie Maker mode, which renders
+  offline at a fixed clock. Use it when an animation is too quick to
+  screenshot — and never judge these animations in a background browser tab,
+  where throttling stretches the game clock.

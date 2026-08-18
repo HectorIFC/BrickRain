@@ -321,6 +321,7 @@ sub onGameOver()
         nickname: m.top.playerNickname,
         score: finalScore,
         lines: m.state.score.lines,
+        level: m.state.score.level,
         isNewRecord: isNewRecord
     }
 end sub

@@ -30,6 +30,7 @@ MUSIC := godot/music/theme.ogg
 .PHONY: help \
 	roku-lint roku-build roku-test roku-play roku-deploy roku-assets \
 	godot-import godot-build godot-test godot-layout godot-play godot-serve \
+	godot-play-clean godot-capture \
 	godot-assets godot-template godot-controls \
 	test check doctor clean clean-all
 
@@ -91,7 +92,7 @@ godot-import: godot/.godot ## Populate godot/.godot/ (needed on a fresh clone)
 godot-build: node_modules godot/.godot ## Export and package out/brickrain-web.zip
 	npm run web:build
 
-godot-test: godot/.godot ## Logic suite — 47 cases, incl. the seed-23 golden values
+godot-test: godot/.godot ## Logic suite — 48 cases, incl. the seed-23 golden values
 	npm run web:test
 
 godot-layout: godot/.godot ## Layout smoke test — screens fill, portrait/landscape flip
@@ -102,6 +103,26 @@ godot-play: godot-build godot-controls ## Build, serve, and open the browser
 	@echo ""
 	@command -v open >/dev/null 2>&1 && ( sleep 1; open "http://127.0.0.1:$(PORT)" ) & \
 		cd $(WEB_DIR) && python3 -m http.server $(PORT)
+
+# Browser storage (IndexedDB) is partitioned per ORIGIN, and the port is part
+# of the origin — so a throwaway random port gives an empty save: no nickname,
+# no runs, record 0. Perfect for manually testing the first-run flow, the
+# "record to beat" logic and the new-record fireworks without touching code.
+godot-play-clean: godot-build godot-controls ## Play with EMPTY storage (fresh throwaway origin)
+	@P=$$((20000 + $$RANDOM % 20000)); \
+	echo "  Fresh origin http://127.0.0.1:$$P — nickname, runs and record start empty"; \
+	echo ""; \
+	( command -v open >/dev/null 2>&1 && sleep 1 && open "http://127.0.0.1:$$P" ) & \
+	cd $(WEB_DIR) && python3 -m http.server $$P
+
+# Movie Maker mode renders offline at a fixed clock, so effects that are too
+# fast to screenshot by hand (LEVEL popup, fireworks) come out frame by frame.
+godot-capture: godot/.godot ## Record the fast effects as PNG frames (build/captures/)
+	@rm -rf build/captures && mkdir -p build/captures
+	$(GODOT) --path godot --write-movie ../build/captures/fx.png --fixed-fps 30 res://tests/FxCapture.tscn
+	@echo ""
+	@echo "  Frames in build/captures/ — fx00000018.png is ~0.6s (LEVEL popup),"
+	@echo "  fx00000090.png onward is the fireworks show."
 
 godot-serve: ## Serve the last build without rebuilding
 	@test -f $(WEB_DIR)/index.html || { \
@@ -147,7 +168,7 @@ godot-template: ## Build the size-optimised engine template (~8 min, ~15 GB disk
 # the check that catches drift: both suites must report identical totals.
 test: roku-test godot-test ## Run both logic suites — the totals must match
 	@echo ""
-	@echo "  Both suites above must read: Cases: 47, checks: 275, failed: 0"
+	@echo "  Both suites above must read: Cases: 48, checks: 282, failed: 0"
 	@echo "  Different totals mean the two cores have drifted — see CONTRIBUTING.md"
 	@echo ""
 

@@ -13,6 +13,7 @@ namespace tests.leaderboardCases
             { name: "leaderboard: topScore returns the rank-1 score", collector: caseTopScore() }
             { name: "leaderboard: capacity is capped at 50 entries", collector: caseCap() }
             { name: "leaderboard: JSON round trip preserves entries", collector: caseRoundTrip() }
+            { name: "leaderboard: level rides along; legacy entries default to 0", collector: caseLevelField() }
             { name: "leaderboard: malformed JSON degrades to empty", collector: caseBadJson() }
             { name: "leaderboard: malformed nickname/date is rejected", collector: caseRejectsMalformed() }
         ]
@@ -121,6 +122,25 @@ namespace tests.leaderboardCases
         tests.assert.equal(c, restored.entries[0].nickname, "Alice", "order survives")
         tests.assert.equal(c, restored.entries[0].score, 500, "score survives")
         tests.assert.equal(c, restored.entries[1].date, "01/06/2026", "date survives")
+        return c
+    end function
+
+    function caseLevelField() as object
+        c = tests.assert.newCollector()
+        lb = brickrain.leaderboard.create()
+        lb = brickrain.leaderboard.addEntry(lb, "Alice", 500, "06/06/2026", 7)
+        tests.assert.equal(c, lb.entries[0].level, 7, "addEntry records the finishing level")
+        lb = brickrain.leaderboard.addEntry(lb, "Bob", 300, "01/06/2026")
+        tests.assert.equal(c, lb.entries[1].level, 0, "omitted level defaults to 0 (unknown)")
+        tests.assert.equal(c, lb.entries[0].level, 7, "cloning through a later add keeps the level")
+        restored = brickrain.leaderboard.deserialize(brickrain.leaderboard.serialize(lb))
+        tests.assert.equal(c, restored.entries[0].level, 7, "level survives the JSON round trip")
+        ' Payloads persisted before the field existed must keep deserializing.
+        legacy = brickrain.leaderboard.deserialize("{""entries"":[{""nickname"":""Old"",""score"":50,""date"":""01/01/2026""}]}")
+        tests.assert.equal(c, legacy.entries.count(), 1, "a legacy entry without level is still valid")
+        tests.assert.equal(c, legacy.entries[0].level, 0, "legacy entries read as level 0, never invented")
+        bad = brickrain.leaderboard.deserialize("{""entries"":[{""nickname"":""Odd"",""score"":60,""date"":""02/01/2026"",""level"":""high""}]}")
+        tests.assert.equal(c, bad.entries[0].level, 0, "a malformed level degrades to 0, not a crash")
         return c
     end function
 

@@ -67,7 +67,7 @@ jobs:
         run: godot --headless --path godot --import
 
       # Both runners exit non-zero on failure, so a red suite fails the job.
-      - name: Run logic tests (47 cases, incl. the seed-23 golden values)
+      - name: Run logic tests (48 cases, incl. the seed-23 golden values)
         run: godot --headless --path godot --script res://tests/run_tests.gd
 
       # Runs as a scene, not --script: autoloads are not registered under

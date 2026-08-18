@@ -106,7 +106,11 @@ static func merge_leaderboards(local_state: Dictionary, cloud_state: Dictionary)
 			continue
 		seen[key] = true
 		merged = Leaderboard.add_entry(
-			merged, str(entry["nickname"]), int(entry["score"]), str(entry["date"])
+			merged,
+			str(entry["nickname"]),
+			int(entry["score"]),
+			str(entry["date"]),
+			Leaderboard.entry_level(entry)
 		)
 	return merged
 
