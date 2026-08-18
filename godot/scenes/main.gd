@@ -25,6 +25,9 @@ func _ready() -> void:
 	_dashboard = Dashboard.new()
 	_dashboard.play_requested.connect(_on_play_requested)
 	_dashboard.change_nickname_requested.connect(_show_nickname_entry)
+	_dashboard.friends_ranking_requested.connect(
+		func(): FBBridge.show_leaderboard(AppConfig.leaderboard_name())
+	)
 	add_child(_dashboard)
 
 	_game = GameScreen.new()

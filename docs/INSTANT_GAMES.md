@@ -187,6 +187,10 @@ Now run the checks that cannot be verified anywhere else:
 - [ ] Scores appear on the Facebook social leaderboard
 - [ ] The **Share** button appears at game over and opens the share dialog with the
       generated score card and the result text
+- [ ] **Friends Ranking** on the dashboard opens the native leaderboard overlay with
+      friends' names and photos — and pin the real overlayViews entry point in the
+      shim if the probe list in `showLeaderboard` missed it (an UNSUPPORTED result
+      in the console means exactly that)
 - [ ] Audio: music starts on the first tap, effects are audible, mute persists
 
 Two of these only work on a phone: **ads** (not served to desktop) and the **software
@@ -249,11 +253,16 @@ against a 5 s timeout and falls through to unavailable. Do not remove that guard
 
 ## Two leaderboards, on purpose
 
-- **In-game dashboard** — one row per game played, so the same nickname can appear many
-  times. This is the Roku model, kept identical.
-- **Facebook social leaderboard** — one best score per player, via `setScoreAsync`.
-  Facebook's own overlay renders the names and photos that Zero Permissions no longer
-  exposes to the game.
+- **In-game "Your best runs"** — one row per game played, the same model the Roku channel
+  uses. On the shared living-room TV that list is a genuine household ranking; on Facebook
+  every player is on their own device, so the web UI presents it as what it really is
+  there: the player's personal history.
+- **Facebook social leaderboard** — one best score per player, via `setScoreAsync`, opened
+  from the dashboard's **Friends Ranking** button (shown on-platform only). Facebook's own
+  overlay renders the names and photos that Zero Permissions no longer exposes to the
+  game. There is deliberately no custom ranking backend: it would cost hosting and
+  moderation forever, be trivially cheatable without server-side replay validation, and
+  compete with the platform ranking that already exists for free.
 
 They are different products and both are intentional.
 

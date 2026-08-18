@@ -343,6 +343,45 @@ window.BrickRainFB = (function () {
 		// the per-game model separately; these are different products, and
 		// both are intentional.
 
+		// --- native leaderboard overlay ---
+		//
+		// Under Zero Permissions the game cannot read names or photos; the v8
+		// overlayViews module exists so Facebook renders them itself. The exact
+		// creation call is not verifiable off-platform, so this probes the
+		// documented-plausible entry points and degrades to UNSUPPORTED —
+		// validate and pin the real one in the Instant Games test environment
+		// (it is on the Phase 6 checklist).
+
+		showLeaderboard: function (leaderboardName, cb) {
+			if (!state.available) {
+				reply(cb, { ok: false, code: 'UNAVAILABLE', message: 'FBInstant not available' });
+				return;
+			}
+			const hosts = [FBInstant.overlayViews, FBInstant];
+			const names = [
+				'createLeaderboardOverlayAsync',
+				'createLeaderboardViewAsync',
+				'showLeaderboardAsync',
+			];
+			for (const host of hosts) {
+				if (!host) {
+					continue;
+				}
+				for (const name of names) {
+					if (typeof host[name] === 'function') {
+						host[name](leaderboardName).then(function () {
+							reply(cb, { ok: true });
+						}).catch(function (err) {
+							fail(cb, err, 'LEADERBOARD_FAILED');
+						});
+						return;
+					}
+				}
+			}
+			console.warn('[BrickRainFB] no leaderboard overlay entry point found on this SDK');
+			reply(cb, { ok: false, code: 'UNSUPPORTED', message: 'leaderboard overlay not found' });
+		},
+
 		// --- sharing ---
 		//
 		// shareAsync needs both an image (base64) and text. The attached data

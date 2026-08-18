@@ -21,6 +21,7 @@ signal rewarded_loaded(ok: bool, code: String)
 signal rewarded_shown(ok: bool, code: String)
 signal score_submitted(ok: bool, code: String)
 signal shared(ok: bool, code: String)
+signal leaderboard_shown(ok: bool, code: String)
 
 # JavaScriptBridge callbacks must stay referenced for as long as JS might call
 # them; a local would be collected and the callback would fire into freed
@@ -31,6 +32,7 @@ var _cb_load_ad: JavaScriptObject
 var _cb_show_ad: JavaScriptObject
 var _cb_submit_score: JavaScriptObject
 var _cb_share: JavaScriptObject
+var _cb_show_leaderboard: JavaScriptObject
 
 var _shim: JavaScriptObject = null
 
@@ -48,6 +50,7 @@ func _ready() -> void:
 	_cb_show_ad = JavaScriptBridge.create_callback(_on_show_ad)
 	_cb_submit_score = JavaScriptBridge.create_callback(_on_submit_score)
 	_cb_share = JavaScriptBridge.create_callback(_on_share)
+	_cb_show_leaderboard = JavaScriptBridge.create_callback(_on_leaderboard_shown)
 
 
 func _is_web() -> bool:
@@ -144,6 +147,15 @@ func share(image_base64: String, text: String, data: Dictionary = {}) -> void:
 	_shim.share(JSON.stringify({"image": image_base64, "text": text, "data": data}), _cb_share)
 
 
+# Opens Facebook's native leaderboard overlay, which renders the names and
+# photos Zero Permissions keeps away from the game itself.
+func show_leaderboard(leaderboard_name: String) -> void:
+	if _shim == null:
+		leaderboard_shown.emit(false, "UNAVAILABLE")
+		return
+	_shim.showLeaderboard(leaderboard_name, _cb_show_leaderboard)
+
+
 # --- callback plumbing ---
 
 
@@ -193,3 +205,8 @@ func _on_submit_score(args: Array) -> void:
 func _on_share(args: Array) -> void:
 	var result := _parse(args)
 	shared.emit(bool(result.get("ok", false)), _code(result))
+
+
+func _on_leaderboard_shown(args: Array) -> void:
+	var result := _parse(args)
+	leaderboard_shown.emit(bool(result.get("ok", false)), _code(result))

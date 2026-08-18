@@ -110,3 +110,9 @@ Run `make godot-play`, then:
 - [ ] The score rolls up to its new value; the HOLD slot pulses on a stash.
 - [ ] Game over sweeps the well dark before the overlay; a new record adds
       confetti and a pop alongside the fanfare.
+
+### Dashboard framing (web)
+- [ ] The list is headed **"Your best runs"** — it is the player's own history, not a
+      ranking of people.
+- [ ] Off-platform (make godot-play) there is **no Friends Ranking button**; it only
+      exists inside Facebook, same rule as the ad offer and Share.

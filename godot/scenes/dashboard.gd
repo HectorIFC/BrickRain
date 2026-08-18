@@ -10,6 +10,7 @@ extends Control
 
 signal play_requested
 signal change_nickname_requested
+signal friends_ranking_requested
 
 # Widest the content is allowed to get. Chosen to fit the narrowest design
 # space (1080) with the screen margins still applied.
@@ -64,6 +65,15 @@ func _ready() -> void:
 	_record_label = UiStyle.make_label("", UiStyle.SIZE_STAT_LABEL, GameTheme.text_color())
 	column.add_child(_record_label)
 
+	# On Facebook every player is on their own device, so this list is the
+	# player's own history — one row per run — not a ranking of people. The
+	# social ranking is Facebook's native leaderboard, opened by the button
+	# below. On the shared-TV Roku build the equivalent list IS a household
+	# ranking, which is why the model itself stays unchanged.
+	column.add_child(UiStyle.make_label(
+		"Your best runs", UiStyle.SIZE_STAT_LABEL, GameTheme.text_color()
+	))
+
 	# The list scrolls: the leaderboard holds up to 50 entries.
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -100,6 +110,16 @@ func _ready() -> void:
 	_mute_button.pressed.connect(_on_mute_pressed)
 	buttons.add_child(_mute_button)
 	_refresh_mute_button()
+
+	# The real ranking between players: Facebook's native leaderboard, which
+	# renders friends' names and photos via the platform overlay. Hidden off
+	# platform — same rule as the ad offer and the share button, so no button
+	# is ever shown that would silently do nothing.
+	if FBBridge.is_available():
+		var ranking := UiStyle.make_button("Friends Ranking", UiStyle.SIZE_BUTTON_SMALL)
+		ranking.custom_minimum_size = Vector2(340, 96)
+		ranking.pressed.connect(func(): friends_ranking_requested.emit())
+		buttons.add_child(ranking)
 
 
 func _on_mute_pressed() -> void:
