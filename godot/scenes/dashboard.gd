@@ -18,6 +18,9 @@ const CONTENT_MAX_WIDTH := 960
 
 var _player_label: Label
 var _record_label: Label
+var _runs_value: Label
+var _best_value: Label
+var _level_value: Label
 var _mute_button: Button
 var _list: VBoxContainer
 var _empty_label: Label
@@ -52,6 +55,11 @@ func _ready() -> void:
 	# margins above, so portrait never overflows.
 	column.custom_minimum_size = Vector2(CONTENT_MAX_WIDTH, 0)
 	column.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# Shrink-centre vertically too. Stretching left a tall void in the middle
+	# with the header pinned to the top and the buttons to the bottom; grouped
+	# in the centre the screen reads as one block whether there are 2 runs or
+	# 50 (the list scrolls once it outgrows its cap).
+	column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	margin.add_child(column)
 
 	column.add_child(UiStyle.make_wordmark("BRICKRAIN", UiStyle.SIZE_WORDMARK_SMALL))
@@ -65,6 +73,17 @@ func _ready() -> void:
 	_record_label = UiStyle.make_label("", UiStyle.SIZE_STAT_LABEL, GameTheme.text_color())
 	column.add_child(_record_label)
 
+	# Three numbers the player has earned, read straight off the history: how
+	# much they have played, their best score and how deep they have got. No
+	# new storage, and it gives the middle of the screen something to say.
+	var stats := HBoxContainer.new()
+	stats.alignment = BoxContainer.ALIGNMENT_CENTER
+	stats.add_theme_constant_override("separation", 48)
+	column.add_child(stats)
+	_runs_value = _add_stat(stats, "RUNS")
+	_best_value = _add_stat(stats, "BEST")
+	_level_value = _add_stat(stats, "LEVEL")
+
 	# On Facebook every player is on their own device, so this list is the
 	# player's own history - one row per run - not a ranking of people. The
 	# social ranking is Facebook's native leaderboard, opened by the button
@@ -74,9 +93,11 @@ func _ready() -> void:
 		"Your best runs", UiStyle.SIZE_STAT_LABEL, GameTheme.text_color()
 	))
 
-	# The list scrolls: the leaderboard holds up to 50 entries.
+	# The list scrolls once it passes this height; below it the column simply
+	# gets shorter, which is what keeps a two-run history compact.
 	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 0)
+	scroll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	column.add_child(scroll)
 
@@ -122,6 +143,20 @@ func _ready() -> void:
 		buttons.add_child(ranking)
 
 
+# One stat: small caption over a large value, the same shape the in-game side
+# panel uses, so the two screens read as one game.
+func _add_stat(parent: BoxContainer, caption: String) -> Label:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 0)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	parent.add_child(box)
+	var label := UiStyle.make_label(caption, UiStyle.SIZE_SLOT_LABEL, GameTheme.text_color())
+	box.add_child(label)
+	var value := UiStyle.make_label("0", UiStyle.SIZE_STAT_VALUE, GameTheme.accent_color())
+	box.add_child(value)
+	return value
+
+
 func _on_mute_pressed() -> void:
 	Music.toggle_muted()
 	_refresh_mute_button()
@@ -141,12 +176,23 @@ func refresh(leaderboard_state: Dictionary, nickname: String = "") -> void:
 	_player_label.visible = nickname != ""
 	_record_label.text = "Record to beat: %d" % Leaderboard.top_score(leaderboard_state)
 
+	var best_level := 0
+	for entry in entries:
+		best_level = maxi(best_level, Leaderboard.entry_level(entry))
+	_runs_value.text = str(entries.size())
+	_best_value.text = str(Leaderboard.top_score(leaderboard_state))
+	# Runs recorded before the level field existed read as 0, so a history made
+	# only of those shows a dash rather than claiming level 0.
+	_level_value.text = str(best_level) if best_level >= 1 else "-"
+
 	for i in range(entries.size()):
 		_list.add_child(_make_row(i + 1, entries[i]))
 
 
 func _make_row(rank: int, entry: Dictionary) -> Control:
 	var row := PanelContainer.new()
+	# Comfortably tappable on a phone; on desktop it just reads as roomier.
+	row.custom_minimum_size = Vector2(0, 72)
 	var style := StyleBoxFlat.new()
 	style.bg_color = GameTheme.panel_color()
 	style.set_content_margin_all(8)

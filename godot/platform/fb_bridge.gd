@@ -22,6 +22,9 @@ signal rewarded_shown(ok: bool, code: String)
 signal score_submitted(ok: bool, code: String)
 signal shared(ok: bool, code: String)
 signal leaderboard_shown(ok: bool, code: String)
+# Emitted while the player types in the HTML input that stands in for the
+# software keyboard; `submit` is true when they press Enter / Go.
+signal text_input_changed(text: String, submit: bool)
 
 # JavaScriptBridge callbacks must stay referenced for as long as JS might call
 # them; a local would be collected and the callback would fire into freed
@@ -33,6 +36,7 @@ var _cb_show_ad: JavaScriptObject
 var _cb_submit_score: JavaScriptObject
 var _cb_share: JavaScriptObject
 var _cb_show_leaderboard: JavaScriptObject
+var _cb_text_input: JavaScriptObject
 
 var _shim: JavaScriptObject = null
 
@@ -51,6 +55,7 @@ func _ready() -> void:
 	_cb_submit_score = JavaScriptBridge.create_callback(_on_submit_score)
 	_cb_share = JavaScriptBridge.create_callback(_on_share)
 	_cb_show_leaderboard = JavaScriptBridge.create_callback(_on_leaderboard_shown)
+	_cb_text_input = JavaScriptBridge.create_callback(_on_text_input)
 
 
 func _is_web() -> bool:
@@ -156,6 +161,28 @@ func show_leaderboard(leaderboard_name: String) -> void:
 	_shim.showLeaderboard(leaderboard_name, _cb_show_leaderboard)
 
 
+# Puts a real, invisible HTML text field over the canvas so a phone raises its
+# software keyboard: Godot's web DisplayServer has no virtual keyboard, and iOS
+# only opens one for a genuine focused text element. The rect is in fractions
+# of the viewport, so neither side has to know about device pixel ratios.
+#
+# Unlike the rest of this file, it does not need the Facebook SDK: the shim
+# object exists on any web build, so this works on a plain web server too.
+func show_text_input(rect: Rect2, value: String, max_length: int) -> void:
+	if _shim == null:
+		return
+	_shim.showTextInput(
+		rect.position.x, rect.position.y, rect.size.x, rect.size.y,
+		value, max_length, _cb_text_input
+	)
+
+
+func hide_text_input() -> void:
+	if _shim == null:
+		return
+	_shim.hideTextInput()
+
+
 # --- callback plumbing ---
 
 
@@ -205,6 +232,13 @@ func _on_submit_score(args: Array) -> void:
 func _on_share(args: Array) -> void:
 	var result := _parse(args)
 	shared.emit(bool(result.get("ok", false)), _code(result))
+
+
+func _on_text_input(args: Array) -> void:
+	var result := _parse(args)
+	if not bool(result.get("ok", false)):
+		return
+	text_input_changed.emit(str(result.get("text", "")), bool(result.get("submit", false)))
 
 
 func _on_leaderboard_shown(args: Array) -> void:

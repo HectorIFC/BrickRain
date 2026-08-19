@@ -29,8 +29,8 @@ MUSIC := godot/music/theme.ogg
 
 .PHONY: help \
 	roku-lint roku-build roku-test roku-play roku-deploy roku-assets \
-	godot-import godot-build godot-test godot-layout godot-play godot-serve \
-	godot-play-clean godot-capture \
+	godot-import godot-build godot-test godot-layout godot-touch godot-play godot-serve \
+	godot-play-clean godot-capture godot-tunnel \
 	godot-assets godot-template godot-controls \
 	test check no-dashes doctor clean clean-all
 
@@ -98,6 +98,11 @@ godot-test: godot/.godot ## Logic suite - 48 cases, incl. the seed-23 golden val
 godot-layout: godot/.godot ## Layout smoke test - screens fill, portrait/landscape flip
 	npm run web:test:layout
 
+# Nothing else exercises touch: every desktop playtest used the keyboard, so a
+# broken gesture would stay invisible until someone opened the game on a phone.
+godot-touch: godot/.godot ## Touch input test - drag, tap and flick reach the game
+	$(GODOT) --headless --path godot res://tests/TouchInput.tscn
+
 godot-play: godot-build godot-controls ## Build, serve, and open the browser
 	@echo "  Serving $(WEB_DIR) at http://127.0.0.1:$(PORT)  (Ctrl-C to stop)"
 	@echo ""
@@ -124,6 +129,33 @@ godot-capture: godot/.godot ## Record the fast effects as PNG frames (build/capt
 	@echo "  Frames in build/captures/ - fx00000018.png is ~0.6s (LEVEL popup),"
 	@echo "  fx00000090.png onward is the fireworks show."
 
+# THE way to open the game on a phone, and https is not a nicety here: a Godot
+# web export refuses to start outside a secure context. Browsers treat
+# localhost and 127.0.0.1 as secure even over http, which is why godot-play
+# works on this machine, but a LAN address over http never is - it fails with
+# "Secure Context - Check web server configuration (use HTTPS)". A quick tunnel
+# hands back a real https URL with no account and no router changes.
+#
+# For testing only: while this runs, anyone holding the link reaches this
+# machine.
+godot-tunnel: godot-build ## Public https URL for phone testing (needs cloudflared)
+	@command -v cloudflared >/dev/null 2>&1 || { \
+		echo ""; \
+		echo "  cloudflared is not installed. Install it with:"; \
+		echo "      brew install cloudflared"; \
+		echo ""; \
+		exit 1; \
+	}
+	@echo ""
+	@echo "  Starting the tunnel. Open the https://<random>.trycloudflare.com"
+	@echo "  address printed below on the phone. Ctrl-C stops both."
+	@echo ""
+	@cd $(WEB_DIR) && python3 -m http.server $(PORT) >/dev/null 2>&1 & \
+	SERVER=$$!; \
+	trap 'kill $$SERVER 2>/dev/null' EXIT INT TERM; \
+	sleep 1; \
+	cloudflared tunnel --url http://127.0.0.1:$(PORT)
+
 godot-serve: ## Serve the last build without rebuilding
 	@test -f $(WEB_DIR)/index.html || { \
 		echo "no build found in $(WEB_DIR) - run 'make godot-build' first"; \
@@ -138,15 +170,19 @@ godot-serve: ## Serve the last build without rebuilding
 # reading the source to remember which key rotates which way.
 godot-controls: ## Print the game controls
 	@echo ""
-	@echo "  Keyboard                        Touch"
-	@echo "    Left / A     move left          drag sideways    move"
-	@echo "    Right / D    move right         tap              rotate"
-	@echo "    Down / S     soft drop          drag down        soft drop"
-	@echo "    Space        HARD DROP          flick down fast  hard drop"
-	@echo "    Up / W / X   rotate cw          HOLD button      hold"
-	@echo "    Z            rotate ccw         II button        pause"
-	@echo "    C / Shift    hold               SOUND button     mute"
-	@echo "    Esc / P      pause"
+	@echo "  Portrait puts HOLD / II / SOUND in a column right of the well, and"
+	@echo "  <  >  TURN  v  DROP across the bottom."
+	@echo ""
+	@echo "  Keyboard                        Touch: buttons     Touch: gestures"
+	@echo "    Left / A     move left            <  (hold)         drag sideways"
+	@echo "    Right / D    move right           >  (hold)         drag sideways"
+	@echo "    Down / S     soft drop            v  (hold)         drag down"
+	@echo "    Space        HARD DROP            DROP              flick down fast"
+	@echo "    Up / W / X   rotate cw            TURN              tap"
+	@echo "    Z            rotate ccw           -                 -"
+	@echo "    C / Shift    hold                 HOLD              -"
+	@echo "    Esc / P      pause                II                -"
+	@echo "                 mute                 SOUND             -"
 	@echo ""
 
 godot-assets: ## Regenerate the web build's artwork, music and sounds
@@ -188,7 +224,7 @@ no-dashes: ## Fail if any tracked file contains a long dash
 	fi
 	@echo "  No long dashes."
 
-check: no-dashes roku-lint roku-build roku-test godot-test godot-layout ## Full pre-PR gate
+check: no-dashes roku-lint roku-build roku-test godot-test godot-layout godot-touch ## Full pre-PR gate
 	@echo ""
 	@echo "  All checks passed."
 	@echo ""
@@ -201,6 +237,7 @@ doctor: ## Check the toolchain and generated inputs
 	@printf "    %-9s " godot;   command -v $(GODOT) >/dev/null 2>&1 && $(GODOT) --version || echo "MISSING (needed for every godot- target)"
 	@printf "    %-9s " python3; command -v python3 >/dev/null 2>&1 && python3 --version || echo "MISSING"
 	@printf "    %-9s " ffmpeg;  command -v ffmpeg  >/dev/null 2>&1 && echo "ok"         || echo "MISSING (needed by godot-assets)"
+	@printf "    %-9s " cloudflared; command -v cloudflared >/dev/null 2>&1 && echo "ok"   || echo "absent (optional, only for godot-tunnel)"
 	@printf "    %-9s " brotli;  command -v brotli  >/dev/null 2>&1 && echo "ok"         || echo "missing (only used for size measurements)"
 	@echo ""
 	@echo "  Project state"

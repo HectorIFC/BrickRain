@@ -47,3 +47,8 @@ window/stretch/aspect="expand"
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+; The colour behind everything the game draws. Deliberately identical to
+; boot_splash/bg_color and GameTheme.background_color(): during the first
+; frames the canvas is already up while the splash still shows, and any
+; difference between the two reads as dark bands around the splash.
+environment/defaults/default_clear_color=Color(0.031373, 0.039216, 0.133333, 1)

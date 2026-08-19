@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://brickrain_touch_input"]
+
+[ext_resource type="Script" path="res://tests/touch_input.gd" id="1_touch"]
+
+[node name="TouchInput" type="Node"]
+script = ExtResource("1_touch")

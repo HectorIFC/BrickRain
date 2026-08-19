@@ -75,9 +75,50 @@ func _check_responsive_layout() -> void:
 	# Driving raw Control sizes with physical numbers measures a layout that
 	# cannot occur and makes the panel look far wider than it really is.
 	await _assert_orientation(game, Vector2(1080, 1920), true, "portrait 1080x1920")
+	_assert_touch_targets(game, "portrait 1080x1920")
 	await _assert_orientation(game, Vector2(1080, 2400), true, "portrait tall 1080x2400")
 	await _assert_orientation(game, Vector2(3750, 1920), false, "landscape 3750x1920")
 	game.queue_free()
+
+
+# Fat-finger guard. A button that fits the layout can still be too small to hit
+# on a phone, and that is invisible to every other check here: the screen looks
+# right and the taps land next door. 150 design px is about 54pt on a 390pt
+# handset, past Apple's 44pt minimum.
+const MIN_TOUCH_TARGET := 150.0
+
+
+func _assert_touch_targets(game: GameScreen, label: String) -> void:
+	var small := []
+	var outside := []
+	var bounds := game.get_global_rect()
+	for button in _buttons_in(game):
+		var name: String = button.text if button.text != "" else "(mute)"
+		if button.size.x < MIN_TOUCH_TARGET or button.size.y < MIN_TOUCH_TARGET:
+			small.append("%s %s" % [name, str(button.size)])
+		# A button hanging off the edge is unusable even at the right size, and
+		# nothing else here would notice.
+		if not bounds.encloses(button.get_global_rect()):
+			outside.append("%s %s" % [name, str(button.get_global_rect())])
+	if small.is_empty():
+		print("%-24s touch targets >= %d  ok" % [label, int(MIN_TOUCH_TARGET)])
+	else:
+		print("%-24s TOO SMALL: %s" % [label, ", ".join(small)])
+		_failures += 1
+	if outside.is_empty():
+		print("%-24s buttons inside the screen  ok" % label)
+	else:
+		print("%-24s OFF SCREEN: %s" % [label, ", ".join(outside)])
+		_failures += 1
+
+
+func _buttons_in(node: Node) -> Array:
+	var found := []
+	for child in node.get_children():
+		if child is Button and child.visible:
+			found.append(child)
+		found.append_array(_buttons_in(child))
+	return found
 
 
 func _assert_orientation(game: GameScreen, view: Vector2, want_portrait: bool, label: String) -> void:

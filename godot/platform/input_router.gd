@@ -41,6 +41,8 @@ var _touch_last := Vector2.ZERO
 var _touch_start_ms := 0
 var _touch_travel := 0.0
 var _gesture_consumed := false
+# Sideways steps disqualify a flick; downward ones must not. See _handle_touch.
+var _moved_sideways := false
 
 var _key_map := {
 	KEY_LEFT: "move_left",
@@ -134,6 +136,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_touch_start_ms = Time.get_ticks_msec()
 		_touch_travel = 0.0
 		_gesture_consumed = false
+		_moved_sideways = false
 		return
 
 	if not _touch_active:
@@ -144,8 +147,15 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 	var delta := event.position - _touch_start
 
 	# A fast, long downward flick is a hard drop.
+	#
+	# The disqualifier here is deliberately _moved_sideways, not
+	# _gesture_consumed: a flick has to cross the soft-drop step (6% of the
+	# short side) on its way to the hard-drop distance (18%), so testing
+	# "nothing was consumed" made the gesture unreachable in practice, and the
+	# player got a stream of soft drops instead. A sideways drag still cannot
+	# turn into a slam.
 	if (
-		not _gesture_consumed
+		not _moved_sideways
 		and delta.y >= _short_side() * HARD_DROP_TRAVEL_RATIO
 		and absf(delta.y) > absf(delta.x)
 		and duration <= HARD_DROP_MAX_DURATION_MS
@@ -169,10 +179,26 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		_emit("move_right" if delta.x > 0.0 else "move_left")
 		_touch_last = event.position
 		_gesture_consumed = true
+		_moved_sideways = true
 	elif delta.y >= step:
 		_emit("soft_drop")
 		_touch_last = event.position
 		_gesture_consumed = true
+
+
+# The on-screen buttons drive the same DAS the keyboard uses, so holding the
+# left button repeats exactly like holding the left key.
+func press_action(name: String) -> void:
+	if not _enabled:
+		return
+	_emit(name)
+	if name in REPEATABLE:
+		_begin_das(name)
+
+
+func release_action(name: String) -> void:
+	if _held_action == name:
+		_held_action = ""
 
 
 func _short_side() -> float:

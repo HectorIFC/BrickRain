@@ -141,3 +141,56 @@ Run `make godot-play`, then:
   offline at a fixed clock. Use it when an animation is too quick to
   screenshot - and never judge these animations in a background browser tab,
   where throttling stretches the game clock.
+
+## Testing on a real phone
+
+The web build is portrait-first (1080x1920 design space) and already has touch
+controls, so most of what matters can only be judged on a real device.
+
+**It has to be https.** A Godot web export refuses to start outside a secure
+context. Browsers count `localhost` and `127.0.0.1` as secure even over http,
+which is why `make godot-play` works on this machine, but a LAN address like
+`http://192.168.1.7:8777` never is: the phone shows
+
+> Error. The following features required to run Godot projects on the Web are
+> missing: Secure Context - Check web server configuration (use HTTPS)
+
+That is the platform, not the game. On Facebook the game is always served over
+https, so this only ever bites during local testing.
+
+**The device path:** `make godot-tunnel` prints a throwaway
+`https://<random>.trycloudflare.com` URL that works on the same Wi-Fi, on mobile
+data, and on someone else's phone. Needs `brew install cloudflared`. The link
+reaches this machine while the command runs, so stop it when you are done.
+
+**Seeing the console from the phone:** on the iPhone enable Settings > Safari >
+Advanced > Web Inspector (Developer Mode under Privacy and Security if the entry
+is missing), connect by USB, then on the Mac use Safari > Develop > (your iPhone)
+> the BrickRain tab. Console, network and elements mirror the phone live.
+
+### Phone checklist
+- [ ] Portrait: the stats become a strip across the top, the well fills the
+      middle with the HOLD / pause / SOUND column beside it, and the movement
+      row sits at the bottom, clear of the home indicator. Portrait is the
+      supported phone and tablet orientation.
+- [ ] Portrait puts HOLD / pause / SOUND in a column down the right of the
+      well, and `<  >  TURN  v  DROP` across the bottom. Holding `<`, `>` or
+      `v` repeats at the same speed as holding the key; TURN and DROP fire
+      once. Every button is at least 150 design px on both axes, which
+      `make godot-layout` now asserts rather than trusts.
+- [ ] The gestures still work alongside the buttons: drag sideways moves, drag
+      down soft drops, a fast long flick down hard drops, and a tap rotates.
+      (`make godot-touch` covers all four headlessly.)
+- [ ] The loading screen fills the whole display with the splash art, no dark
+      bands at the edges and no white flash.
+- [ ] Rotating the phone to landscape rearranges into panel / well / buttons
+      columns and back again without reloading.
+- [ ] Dashboard rows are comfortably tappable and the RUNS / BEST / LEVEL band
+      reads correctly.
+- [ ] Tapping the nickname field raises the system keyboard, what you type
+      appears in the field the game draws, and the Go / Enter key submits.
+      (The field the finger lands on is a real HTML input placed over the
+      canvas; Godot's web build cannot raise a keyboard by itself.)
+- [ ] Music and effects are audible **with the ring/silent switch set to
+      silent**. On iOS, Web Audio plays on the ringer channel by default, so
+      this is the check that catches a regression in the audio session setup.

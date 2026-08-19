@@ -277,5 +277,9 @@ They are different products and both are intentional.
 - Meta's documented bundle ceiling is 200 MB and the packager fails above it. At ~7.8 MB
   zipped there is a lot of headroom. Worth confirming the current figure in the dashboard,
   since it is documented outside the main SDK reference.
+- **The export needs a secure context.** It starts on `localhost` or over https
+  and refuses anything else, so a plain LAN address cannot be used for phone
+  testing (`make godot-tunnel` exists for that). Meta serves the bundle over
+  https, so this never affects production.
 - Deploy is manual. Meta publishes no first-party GitHub Action for bundle upload, and
   automating it means a long-lived Graph API token in repo secrets.

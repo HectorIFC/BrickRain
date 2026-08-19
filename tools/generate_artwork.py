@@ -110,10 +110,29 @@ def draw_tetromino_rain(image: Image.Image, count: int, block_size: int, seed: i
             draw.rectangle([x, y, x + block_size - 1, y + block_size - 1], fill=color)
 
 
-def compose(width: int, height: int, scale: int, rain_blocks: int, rain_size: int) -> Image.Image:
-    image = Image.new("RGB", (width, height))
-    draw_background(image)
-    draw_tetromino_rain(image, rain_blocks, rain_size)
+def compose(
+    width: int,
+    height: int,
+    scale: int,
+    rain_blocks: int,
+    rain_size: int,
+    transparent: bool = False,
+) -> Image.Image:
+    """The wordmark, optionally over the gradient background.
+
+    `transparent` leaves the background out entirely, which is what the web
+    boot screen needs: an opaque rectangle floating on a page can only ever be
+    letterboxed (visible seam) or cropped (wordmark cut off), and a browser
+    with automatic dark mode shifts the page colour but not the image pixels,
+    so the seam cannot be hidden by matching colours. With alpha, the page
+    paints one flat colour edge to edge and the wordmark simply sits on it.
+    """
+    if transparent:
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    else:
+        image = Image.new("RGB", (width, height))
+        draw_background(image)
+        draw_tetromino_rain(image, rain_blocks, rain_size)
     draw = ImageDraw.Draw(image)
 
     line1, line2 = "BRICK", "RAIN"
@@ -151,15 +170,17 @@ def build_godot() -> None:
     """
     GODOT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     targets = {
-        # Shown centred on boot_splash/bg_color while the engine loads. The
-        # scale leaves margin around the wordmark; the rain is kept sparse so
-        # it does not read as noise behind the letters.
-        "boot_splash.png": (900, 500, 21, 9, 26),
+        # Shown centred on boot_splash/bg_color while the engine loads, and
+        # reused by the web shell as the HTML loading image. Transparent, so
+        # it scales to any phone or desktop shape without a visible rectangle.
+        "boot_splash.png": (900, 500, 21, 9, 26, True),
         # Square app icon; also the source for the web favicons.
-        "icon.png": (512, 512, 14, 6, 20),
+        "icon.png": (512, 512, 14, 6, 20, False),
     }
-    for name, (width, height, scale, rain, rain_size) in targets.items():
-        compose(width, height, scale, rain, rain_size).save(GODOT_OUTPUT_DIR / name)
+    for name, (width, height, scale, rain, rain_size, transparent) in targets.items():
+        compose(width, height, scale, rain, rain_size, transparent).save(
+            GODOT_OUTPUT_DIR / name
+        )
         print(f"  {name} ({width}x{height})")
 
 

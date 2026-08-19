@@ -22,6 +22,11 @@ const RECORD_SOUND_DELAY_S := 0.9
 # launching while the NEW RECORD overlay is up; rise time is fixed so the
 # burst sound can be scheduled for the exact moment the visual pops.
 const FIREWORK_RISE_S := 0.45
+# Touch targets, in the 1080x1920 design space. On a 390pt-wide iPhone the
+# viewport scales by about 0.36, so 150 design px lands near 54pt: comfortably
+# past the 44pt minimum, which is the point of the size.
+const MOVE_BUTTON_SIZE := Vector2(180, 150)
+const SIDE_BUTTON_SIZE := Vector2(170, 150)
 
 var _state: Dictionary = {}
 var _last_level := -1
@@ -45,6 +50,9 @@ var _board_view: BoardView
 var _fx: BoardFx
 var _shake_amp := 0.0
 var _side_panel: SidePanel
+var _margin: MarginContainer
+var _action_bar: BoxContainer
+var _well_row: HBoxContainer
 var _button_bar: BoxContainer
 var _mute_button: Button
 var _input: InputRouter
@@ -67,42 +75,40 @@ func _build() -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
-	add_child(margin)
+	_margin = MarginContainer.new()
+	_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_margin.add_theme_constant_override("margin_left", 12)
+	_margin.add_theme_constant_override("margin_right", 12)
+	_margin.add_theme_constant_override("margin_top", 12)
+	_margin.add_theme_constant_override("margin_bottom", 12)
+	add_child(_margin)
 
 	_root_box = BoxContainer.new()
 	_root_box.add_theme_constant_override("separation", 12)
-	margin.add_child(_root_box)
+	_margin.add_child(_root_box)
 
 	_side_panel = SidePanel.new()
 	_root_box.add_child(_side_panel)
 
+	# The well and the column of session buttons beside it. Portrait is the
+	# phone case and drives this: HOLD, pause and mute stack down the right
+	# edge, under the right thumb, which leaves the whole bottom strip for the
+	# movement buttons to grow into.
+	_well_row = HBoxContainer.new()
+	_well_row.add_theme_constant_override("separation", 12)
+	_well_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_well_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_root_box.add_child(_well_row)
+
 	_board_view = BoardView.new()
 	_board_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_board_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_root_box.add_child(_board_view)
+	_well_row.add_child(_board_view)
 
 	# Celebration overlay: child of the board so it shares its rect and its
 	# well geometry, and shakes along with it.
 	_fx = BoardFx.new()
 	_board_view.add_child(_fx)
-
-	_button_bar = BoxContainer.new()
-	_button_bar.add_theme_constant_override("separation", 10)
-	_root_box.add_child(_button_bar)
-	_button_bar.add_child(_make_touch_button("HOLD", "hold"))
-	_button_bar.add_child(_make_touch_button("II", "pause"))
-	_mute_button = UiStyle.make_button("", UiStyle.SIZE_TOUCH_BUTTON)
-	_mute_button.custom_minimum_size = Vector2(190, 96)
-	_mute_button.focus_mode = Control.FOCUS_NONE
-	_mute_button.pressed.connect(_on_mute_pressed)
-	_button_bar.add_child(_mute_button)
-	_refresh_mute_button()
 
 	_input = InputRouter.new()
 	_input.action.connect(_on_action)
@@ -110,6 +116,37 @@ func _build() -> void:
 	# screens cannot reach the game.
 	_input.set_enabled(false)
 	add_child(_input)
+
+	# Movement controls. Gestures work (drag to move, tap to rotate, flick to
+	# drop) but nothing on screen says so, and on a phone the player should not
+	# have to guess: these spell the moves out. Both paths end up in
+	# _on_action, so there is no second implementation of anything.
+	_action_bar = BoxContainer.new()
+	_action_bar.add_theme_constant_override("separation", 10)
+	_action_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	_root_box.add_child(_action_bar)
+	_action_bar.add_child(_make_touch_button("<", "move_left", true, UiStyle.SIZE_BUTTON))
+	_action_bar.add_child(_make_touch_button(">", "move_right", true, UiStyle.SIZE_BUTTON))
+	_action_bar.add_child(_make_touch_button("TURN", "rotate_cw"))
+	_action_bar.add_child(_make_touch_button("v", "soft_drop", true, UiStyle.SIZE_BUTTON))
+	_action_bar.add_child(_make_touch_button("DROP", "hard_drop"))
+
+	# Always a column: beside the well in portrait, and on the same side of the
+	# screen in landscape, so the two orientations do not disagree about where
+	# these live.
+	_button_bar = BoxContainer.new()
+	_button_bar.vertical = true
+	_button_bar.add_theme_constant_override("separation", 10)
+	_button_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	_well_row.add_child(_button_bar)
+	_button_bar.add_child(_make_touch_button("HOLD", "hold"))
+	_button_bar.add_child(_make_touch_button("II", "pause"))
+	_mute_button = UiStyle.make_button("", UiStyle.SIZE_TOUCH_BUTTON)
+	_mute_button.custom_minimum_size = SIDE_BUTTON_SIZE
+	_mute_button.focus_mode = Control.FOCUS_NONE
+	_mute_button.pressed.connect(_on_mute_pressed)
+	_button_bar.add_child(_mute_button)
+	_refresh_mute_button()
 
 	_audio = GameAudio.new()
 	add_child(_audio)
@@ -128,13 +165,25 @@ func _build() -> void:
 	Ads.reward_failed.connect(_on_reward_failed)
 
 
-# On-screen controls for touch: hold has no natural gesture, and pause needs to
-# stay reachable without a keyboard.
-func _make_touch_button(text: String, action_name: String) -> Button:
-	var button := UiStyle.make_button(text, UiStyle.SIZE_TOUCH_BUTTON)
-	button.custom_minimum_size = Vector2(130, 96)
+# On-screen controls for touch. `repeatable` routes through the InputRouter so
+# holding the button auto-shifts on the same DAS timing as holding the key;
+# a one-shot button (rotate, drop, hold, pause) just fires once on release.
+func _make_touch_button(
+	text: String,
+	action_name: String,
+	repeatable: bool = false,
+	size: int = UiStyle.SIZE_TOUCH_BUTTON
+) -> Button:
+	var button := UiStyle.make_button(text, size)
+	button.custom_minimum_size = MOVE_BUTTON_SIZE if repeatable or action_name in [
+		"rotate_cw", "hard_drop"
+	] else SIDE_BUTTON_SIZE
 	button.focus_mode = Control.FOCUS_NONE
-	button.pressed.connect(_on_action.bind(action_name))
+	if repeatable:
+		button.button_down.connect(func(): _input.press_action(action_name))
+		button.button_up.connect(func(): _input.release_action(action_name))
+	else:
+		button.pressed.connect(_on_action.bind(action_name))
 	return button
 
 
@@ -145,8 +194,12 @@ func _apply_layout() -> void:
 	if _root_box == null:
 		return
 	_root_box.vertical = _portrait
-	_button_bar.vertical = not _portrait
+	_action_bar.vertical = not _portrait
 	_side_panel.set_portrait(_portrait)
+	# Portrait is the phone case, where the touch buttons sit at the bottom of
+	# the screen. iOS draws its home indicator there, so the row needs clearance
+	# or the last row of pixels becomes unpressable.
+	_margin.add_theme_constant_override("margin_bottom", 48 if _portrait else 12)
 
 
 # Current orientation, for tests and for callers that need to mirror it.

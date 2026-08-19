@@ -2,24 +2,45 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+		<!--
+			The page is already dark. Without this, a browser with automatic
+			dark mode (common default on phones) "helpfully" rewrites the
+			background, which shifted #080a22 to a grey and broke the seam
+			between the page and the engine's clear colour.
+		-->
+		<meta name="color-scheme" content="dark">
 		<title>$GODOT_PROJECT_NAME</title>
 		<style>
 html, body, #canvas {
 	margin: 0;
 	padding: 0;
 	border: 0;
+	width: 100%;
+	height: 100%;
 }
 
 body {
 	color: white;
-	background-color: black;
+	color-scheme: dark;
+	/* Every layer that can be visible while the engine boots (page, splash
+	   overlay, canvas clear colour) is painted this one colour. Black here
+	   showed up as dark bands around the splash card on first load. */
+	background-color: $GODOT_SPLASH_COLOR;
 	overflow: hidden;
 	touch-action: none;
 }
 
 #canvas {
 	display: block;
+	/* Without an explicit CSS size the canvas is laid out from its pixel
+	   attributes, which on a high-DPI phone overflows the viewport and leaves
+	   uncovered strips. */
+	width: 100%;
+	height: 100%;
 }
 
 #canvas:focus {
@@ -47,8 +68,15 @@ body {
 }
 
 #status-splash {
-	max-height: 100%;
-	max-width: 100%;
+	/* The art is transparent, so there is no rectangle to letterbox or crop:
+	   the overlay paints one flat colour across the whole viewport and the
+	   wordmark sits on it, sized as a share of the screen so it works on a
+	   phone and on a desktop alike. */
+	width: auto;
+	height: auto;
+	max-width: 70%;
+	max-height: 40%;
+	object-fit: contain;
 	margin: auto;
 }
 
@@ -382,6 +410,78 @@ window.BrickRainFB = (function () {
 			reply(cb, { ok: false, code: 'UNSUPPORTED', message: 'leaderboard overlay not found' });
 		},
 
+		// --- text input ---
+		//
+		// A Godot web export cannot raise a phone's software keyboard: the web
+		// DisplayServer does not implement the virtual keyboard at all, so
+		// nickname_entry.gd's DisplayServer.virtual_keyboard_show() is a no-op
+		// here, and iOS only opens the keyboard when a real text element takes
+		// focus inside a user gesture, which a canvas never is.
+		//
+		// So the field the player taps is a real <input> sitting exactly on top
+		// of the one Godot draws: invisible (transparent text, background and
+		// caret) but focusable, which makes the keyboard appear natively with
+		// no gesture trickery. Its value is mirrored back into the game, and
+		// the Godot LineEdit stays the thing on screen.
+		//
+		// The rect arrives as fractions of the viewport, so no device pixel
+		// ratio maths is needed on either side.
+
+		showTextInput: function (x, y, w, h, value, maxLength, cb) {
+			const canvas = document.getElementById('canvas');
+			if (!canvas) {
+				reply(cb, { ok: false, code: 'UNAVAILABLE' });
+				return;
+			}
+			let input = document.getElementById('brickrain-text-input');
+			if (!input) {
+				input = document.createElement('input');
+				input.id = 'brickrain-text-input';
+				input.type = 'text';
+				input.autocapitalize = 'off';
+				input.autocomplete = 'off';
+				input.autocorrect = 'off';
+				input.spellcheck = false;
+				input.enterKeyHint = 'go';
+				input.style.position = 'absolute';
+				input.style.border = '0';
+				input.style.outline = 'none';
+				input.style.padding = '0';
+				input.style.background = 'transparent';
+				input.style.color = 'transparent';
+				input.style.caretColor = 'transparent';
+				// Anything under 16px makes iOS zoom the page on focus.
+				input.style.fontSize = '16px';
+				input.style.textAlign = 'center';
+				input.style.zIndex = '10';
+				document.body.appendChild(input);
+			}
+			input.maxLength = maxLength > 0 ? maxLength : 12;
+			input.value = value;
+			const box = canvas.getBoundingClientRect();
+			input.style.left = (box.left + box.width * x) + 'px';
+			input.style.top = (box.top + box.height * y) + 'px';
+			input.style.width = (box.width * w) + 'px';
+			input.style.height = (box.height * h) + 'px';
+			input.oninput = function () {
+				reply(cb, { ok: true, text: input.value, submit: false });
+			};
+			input.onkeydown = function (event) {
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					reply(cb, { ok: true, text: input.value, submit: true });
+				}
+			};
+		},
+
+		hideTextInput: function () {
+			const input = document.getElementById('brickrain-text-input');
+			if (input) {
+				input.blur();
+				input.remove();
+			}
+		},
+
 		// --- sharing ---
 		//
 		// shareAsync needs both an image (base64) and text. The attached data
@@ -466,16 +566,61 @@ window.BrickRainAudio = (function () {
 		window.webkitAudioContext = Wrapped;
 	}
 
+	/*
+	 * iOS puts Web Audio on the RINGER channel, so the handset's side switch
+	 * silences the whole game while <audio> elements keep playing. Two ways
+	 * out, applied together because they cover different iOS versions:
+	 *
+	 *   1. The AudioSession API (Safari 16.4+) says outright that this page is
+	 *      playback, which moves it off the ringer channel.
+	 *   2. Older iOS has no such API, but a silent <audio> element playing in
+	 *      a loop pulls Web Audio onto the media channel as a side effect.
+	 *      One second of silence encoded inline; it is never audible.
+	 */
+	function claimPlaybackChannel() {
+		try {
+			if (navigator.audioSession) {
+				navigator.audioSession.type = 'playback';
+			}
+		} catch (err) {
+			/* not fatal: the silent-element fallback below still applies */
+		}
+	}
+
+	let silent = null;
+
+	function keepMediaChannel() {
+		if (silent === null) {
+			silent = document.createElement('audio');
+			silent.setAttribute('playsinline', '');
+			silent.loop = true;
+			silent.volume = 0;
+			// 1s of silence, WAV, so no extra request is needed.
+			silent.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9'
+				+ 'AAACABAAZGF0YQAAAAA=';
+		}
+		const played = silent.play();
+		if (played && played.catch) {
+			played.catch(function () { /* retried on the next gesture */ });
+		}
+	}
+
 	function unlock() {
+		claimPlaybackChannel();
+		keepMediaChannel();
 		if (ctx && ctx.state !== 'running') {
 			// Must run inside the gesture's own task; do not defer it.
 			ctx.resume().catch(function () { /* retried on the next gesture */ });
 		}
 	}
 
-	['pointerdown', 'mousedown', 'touchstart', 'keydown'].forEach(function (type) {
+	// touchend as well as touchstart: iOS is the platform this matters on, and
+	// it is the one that most reliably treats a completed tap as the gesture.
+	['pointerdown', 'mousedown', 'touchstart', 'touchend', 'keydown'].forEach(function (type) {
 		window.addEventListener(type, unlock, { capture: true });
 	});
+
+	claimPlaybackChannel();
 
 	return {
 		unlock: unlock,
